@@ -119,7 +119,7 @@ python run_experiment.py --mode mve --surrogate ensemble --backbones grover molf
 ## Repository layout
 
 ```
-molpal-fusion-hts/
+al-molecular/
 ├── data/EnamineHTS_scores.csv.gz        # real 4UNN docking scores (coleygroup/molpal)
 ├── molpal/libraries/EnamineHTS.csv.gz   # 2.1M-molecule pool
 ├── molpal/                              # vendored MolPAL package (models, acquirer, featurizer, ...)

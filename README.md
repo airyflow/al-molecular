@@ -1,4 +1,4 @@
-# molpal-fusion-hts
+# al-molecular
 
 **Environment: `conda activate py310`** (not `al-eval`, which is missing
 `torch-scatter`, `chemprop`/`pytorch_lightning`, and `ray[train]` -- it was

@@ -1,0 +1,7 @@
+results/embed/**/*.npz
+results/embed/**/*.npy
+runs/*/
+figures/*.pdf
+figures/*.png
+__pycache__/
+*.pyc

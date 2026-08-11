@@ -1,0 +1,17 @@
+
+=== 2026-08-03 20:37:07  dataset=EnamineHTS  device=cuda  limit=3000 ===
+  grover            3,000 mol   1600d      16.3s  ->  /N/slate/mengjing/repos/molpal-fusion-hts/results/embed/EnamineHTS/grover_embeddings.npz
+  unimol        2,141,500 mol    512d     630.3s  ->  /N/slate/mengjing/repos/molpal-fusion-hts/results/embed/EnamineHTS/unimol_embeddings.npz
+  molformer         3,000 mol    768d       3.6s  ->  /N/slate/mengjing/repos/molpal-fusion-hts/results/embed/EnamineHTS/molformer_embeddings.npz
+
+=== 2026-08-03 21:01:51  dataset=EnamineHTS  device=cuda  limit=None ===
+  grover            3,000 mol   1600d       8.2s  ->  /N/slate/mengjing/repos/molpal-fusion-hts/results/embed/EnamineHTS/grover_embeddings.npz
+
+=== 2026-08-03 21:02:14  dataset=EnamineHTS  device=cuda  limit=None ===
+  molformer     2,141,500 mol    768d     465.9s  ->  /N/slate/mengjing/repos/molpal-fusion-hts/results/embed/EnamineHTS/molformer_embeddings.npz
+
+=== 2026-08-03 21:10:39  dataset=EnamineHTS  device=cuda  limit=None ===
+  grover        2,141,500 mol   1600d   11849.3s  ->  /N/slate/mengjing/repos/molpal-fusion-hts/results/embed/EnamineHTS/grover_embeddings.npz
+
+=== 2026-08-04 12:43:11  dataset=EnamineHTS  device=cuda  limit=None ===
+  unimol        2,141,500 mol    512d     646.9s  ->  /N/slate/mengjing/repos/molpal-fusion-hts/results/embed/EnamineHTS/unimol_embeddings.npz

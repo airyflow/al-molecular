@@ -1,6 +1,9 @@
 results/embed/**/*.npz
 results/embed/**/*.npy
+results/embed/**/*.stitch_progress
+results/embed/**/*_canonical.txt
 runs/*/
+logs/
 figures/*.pdf
 figures/*.png
 __pycache__/

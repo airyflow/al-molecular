@@ -349,20 +349,20 @@ footer {
 </style>
 
 <div class="masthead">
-  <div class="eyebrow"><span class="dot"></span>Research report &middot; molpal-fusion-hts</div>
+  <div class="eyebrow"><span class="dot"></span>Research report &middot; al-molecular</div>
   <h1 class="title serif">MolPAL Figure 4 reproduction &amp; a frozen-representation fusion model, on Enamine HTS (2.1M)</h1>
   <p class="subtitle">Reproducing Graff, Shakhnovich &amp; Coley (2021) Figure 4 against thymidylate kinase (4UNN), and comparing three active-learning strategies &mdash; MolPAL+MPN, MolPAL+MoLFormer (fine-tuned in-loop), and a frozen three-backbone fusion model &mdash; under greedy and UCB acquisition.</p>
   <div class="meta-row">
     <span><span class="k">Pool</span>2,141,515 molecules</span>
     <span><span class="k">Oracle</span>AutoDock Vina vs. 4UNN</span>
     <span><span class="k">Metric</span>fraction of true top-1000 found</span>
-    <span><span class="k">Repo</span><code>molpal-fusion-hts</code></span>
+    <span><span class="k">Repo</span><code>al-molecular</code></span>
     <span><span class="k">Date</span>2026-08-10</span>
   </div>
 </div>
 
 <div class="abstract">
-  All 30 configured active-learning runs completed successfully (18 for the three-method comparison, 6 for the Figure 4 reproduction, 3 for the fine-tuned-fusion follow-up, 3 for the learned-fusion follow-up), after tracing and fixing <strong>eight independent bugs</strong> in the vendored MolPAL/chemprop stack &mdash; four genuine out-of-memory risks (one unbounded cache measured at ~15.3&nbsp;TB, one pre-existing default at ~1.77&nbsp;TB, one from a SLURM per-CPU memory cap silently overriding <code>--exclusive</code>, one eager whole-pool graph cache in the fine-tuned-fusion path that hit 315&nbsp;GB RSS on a supposedly tiny smoke test), a CUDA/fork deadlock in chemprop's DataLoader, and a Ray actor-pool leak that crashed RandomForest on its second training round. The headline result: MPN and a MoLFormer-based method that fine-tunes in-loop both reach ~95&ndash;98% of the true top-1000 at the largest batch size, our <strong>frozen fusion model reaches ~95% in under 11 minutes</strong> &mdash; two to three orders of magnitude faster than either &mdash; a follow-up that jointly fine-tunes two of the three backbones (GROVER + MoLFormer, UniMol kept frozen) reaches <strong>97.3% at the largest batch size</strong>, matching MPN and MoLFormer-ft, once the memory footprint of doing that at 2.1M-molecule scale was brought under control &mdash; and simply <strong>replacing the frozen fusion model's fixed Borda-count combination with a learned RidgeCV meta-learner recovers most of that gap (96.7% vs. 95.0%) for the same few-minutes cost</strong>, no fine-tuning required.
+  All 30 configured active-learning runs completed successfully (18 for the three-method comparison, 6 for the Figure 4 reproduction, 3 for the fine-tuned-fusion follow-up, 3 for the learned-fusion follow-up), after tracing and fixing <strong>eight independent bugs</strong> in the vendored MolPAL/chemprop stack &mdash; four genuine out-of-memory risks (one unbounded cache measured at ~15.3&nbsp;TB, one pre-existing default at ~1.77&nbsp;TB, one from a SLURM per-CPU memory cap silently overriding <code>--exclusive</code>, one eager whole-pool graph cache in the fine-tuned-fusion path that hit 315&nbsp;GB RSS on a supposedly tiny smoke test), a CUDA/fork deadlock in chemprop's DataLoader, and a Ray actor-pool leak that crashed RandomForest on its second training round. The headline result: MPN and a MoLFormer-based method that fine-tunes in-loop both reach ~95&ndash;98% of the true top-1000 at the largest batch size, our <strong>frozen fusion model reaches ~95% in under 11 minutes</strong> &mdash; two to three orders of magnitude faster than either &mdash; a follow-up that jointly fine-tunes two of the three backbones (GROVER + MoLFormer, UniMol kept frozen) reaches <strong>97.3% at the largest batch size</strong>, matching MPN and MoLFormer-ft, once the memory footprint of doing that at 2.1M-molecule scale was brought under control &mdash; and simply <strong>replacing the frozen fusion model's fixed Borda-count combination with a learned RidgeCV meta-learner recovers most of that gap (96.7% vs. 95.0%) for the same few-minutes cost</strong>, no fine-tuning required. A later follow-up (&sect;06), run with three seeds per configuration for real variance estimates, swaps in Uni-Mol2 (1.1B parameters, independently ported to standalone PyTorch and verified bit-exact against the real upstream implementation) for the frozen UniMol backbone: the fixed-weight Borda ensemble gains a real, seed-robust <strong>+2.0 to +3.3 points at the two smaller batch fractions</strong>, while the learned RidgeCV combiner's gains are smaller and mostly within seed noise &mdash; consistent with the learned combiner already partially compensating for backbone quality on its own.
 </div>
 
 <section>
@@ -584,16 +584,46 @@ footer {
 </section>
 
 <section>
-  <div class="section-head"><span class="section-num">06</span><h2>Caveats &amp; next steps</h2></div>
+  <div class="section-head"><span class="section-num">06</span><h2>Uni-Mol2: swapping the frozen UniMol backbone</h2></div>
   <div class="prose">
-    <p><b style="color:var(--ink)">Single seed throughout.</b> Every number above is one run, not a mean over repeats &mdash; small gaps between methods (e.g. 95.6% vs. 97.7% vs. 97.3% at the top of the pack) shouldn't be read as a confident ranking yet.</p>
+    <p>Uni-Mol2 (<code>dptech/Uni-Mol2</code>, 1.1B parameters) is a much larger, architecturally distinct successor to the UniMol backbone used in &sect;03 &mdash; an AlphaFold-Evoformer-style two-track transformer (every layer updates both an atom representation and an explicit pairwise representation, not a one-shot 3D-distance bias). It shares no code with muben's UniMol implementation, so it was ported to standalone PyTorch from scratch this session and verified <b style="color:var(--ink)">bit-exact against the real upstream Uni-Core-based implementation</b> (checkpoint loaded into both, same input batch, max absolute difference 0.0, cosine similarity 1.0000 on every test molecule) before being trusted for anything downstream.</p>
+    <p>This section swaps Uni-Mol2 in for UniMol (backbones = GROVER + MoLFormer + Uni-Mol2) in both frozen-fusion surrogates from &sect;03 &mdash; the fixed Borda-count <code>Fusion</code> and the RidgeCV <code>learned_fusion</code> &mdash; and compares against the &sect;03 UniMol-based baseline. Same pool, same protocol, greedy acquisition, three batch fractions. Unlike &sect;03&ndash;05, each configuration here was run with <b style="color:var(--ink)">three seeds</b> (both backbones, for a fair comparison) rather than one, specifically to give the comparison real variance estimates instead of single-run point estimates.</p>
+    <p style="margin-top:14px"><i>Methodological note:</i> an initial pass at this comparison used a slightly wrong pool count to derive <code>--init-size</code>/<code>--batch-size</code> (2,141,500 raw SMILES rows, rather than the 2,104,318 molecules that actually have both an embedding and an oracle score), giving the Uni-Mol2 runs ~1.5&ndash;1.8% more labeled data per round than the UniMol baseline at the nominally same batch fraction. Caught before being reported as final; all numbers below use the corrected, exactly-matched batch sizes.</p>
+  </div>
+
+  <h3>Final-round results, 3 seeds each side</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Surrogate</th><th>Batch</th><th class="num">UniMol (mean&nbsp;&plusmn;&nbsp;std)</th><th class="num">Uni-Mol2 (mean&nbsp;&plusmn;&nbsp;std)</th><th class="num">&Delta;</th></tr></thead>
+      <tbody>
+        <tr><td>Fusion (ensemble)</td><td>0.4%</td><td class="num">94.8% &plusmn; 0.1%</td><td class="num">95.3% &plusmn; 0.4%</td><td class="num">+0.5</td></tr>
+        <tr><td>Fusion (ensemble)</td><td>0.2%</td><td class="num">87.0% &plusmn; 0.8%</td><td class="num">89.0% &plusmn; 0.2%</td><td class="num">+2.0</td></tr>
+        <tr><td>Fusion (ensemble)</td><td>0.1%</td><td class="num">73.0% &plusmn; 1.1%</td><td class="num">76.3% &plusmn; 0.5%</td><td class="num">+3.3</td></tr>
+        <tr><td>learned_fusion</td><td>0.4%</td><td class="num">96.4% &plusmn; 0.3%</td><td class="num">96.7% &plusmn; 0.1%</td><td class="num">+0.3</td></tr>
+        <tr><td>learned_fusion</td><td>0.2%</td><td class="num">90.3% &plusmn; 0.8%</td><td class="num">91.7% &plusmn; 1.2%</td><td class="num">+1.3</td></tr>
+        <tr><td>learned_fusion</td><td>0.1%</td><td class="num">80.0% &plusmn; 0.5%</td><td class="num">80.4% &plusmn; 0.2%</td><td class="num">+0.3</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose"><p style="margin-top:14px">Best score found (&minus;12.700&nbsp;kcal/mol, the pool's true optimum) was identical across every one of these 36 runs &mdash; all differences above are purely in recall efficiency, not final-answer quality. Wall time stayed in the same few-minutes range as &sect;03's Fusion/learned_fusion (backbone size affects embedding-extraction cost, run once beforehand and not part of this AL-loop timing, far more than it affects the loop's own per-round MVE-head training/prediction cost).</p></div>
+
+  <div class="callout">
+    <b>The Uni-Mol2 swap helps the fixed-weight ensemble more than the learned one, and the effect is real (not seed noise) exactly where it's largest.</b> <code>Fusion</code>'s gains at 0.2% and 0.1% batch (+2.0 and +3.3 points) both clearly exceed the observed seed-to-seed spread on either side; its 0.4% gain (+0.5) does not. <code>learned_fusion</code>'s gains are smaller and mostly within noise (+0.3, +1.3, +0.3, with the 0.2% figure sitting inside Uni-Mol2's own &plusmn;1.2% spread there). A plausible reading: <code>Fusion</code> combines backbones with fixed, unlearned weights, so a stronger backbone shows through directly, while <code>learned_fusion</code> fits its combination weights from data each round and so already partially compensates for whichever backbones it's given &mdash; leaving less room to gain from swapping one out. <code>learned_fusion</code> still beats <code>Fusion</code> outright at every batch size regardless of which UniMol variant is used, the most robust finding across all 36 runs in this section.
+  </div>
+</section>
+
+<section>
+  <div class="section-head"><span class="section-num">07</span><h2>Caveats &amp; next steps</h2></div>
+  <div class="prose">
+    <p><b style="color:var(--ink)">Single seed through &sect;05.</b> Every number in Sections 02&ndash;05 is one run, not a mean over repeats &mdash; small gaps between methods (e.g. 95.6% vs. 97.7% vs. 97.3% at the top of the pack) shouldn't be read as a confident ranking yet. &sect;06 is the exception, run with three seeds specifically to address this for the Uni-Mol2 comparison.</p>
     <p><b style="color:var(--ink)">RF's non-monotonic batch-size result</b> (Section 02) reproduced identically on independent GPU and CPU hardware, so it isn't a fluke of one run &mdash; but it's still unexplained and worth understanding before it appears in anything citable.</p>
     <p><b style="color:var(--ink)">ft_fusion is greedy-only so far</b> (Section 04), matching the scope MoLFormer-ft and Fusion were first run at before UCB was added &mdash; a UCB sweep would let it join the full &sect;03 comparison directly rather than sitting alongside it.</p>
-    <p><b style="color:var(--ink)">An AmpC (99.5M molecule, Figure 5) reproduction is in progress</b> in the same repository, extending this pipeline to a ~47&times; larger pool. Data is staged and verified aligned; three of the memory fixes above (bounded chunking, <code>CACHE_MOL</code> disabled, <code>--mem=0</code>) were made specifically because they're load-bearing at that scale. MPN's runtime at 99.5M is still an open problem &mdash; a naive linear extrapolation from the 2.1M numbers above puts a single MPN config at 2&ndash;3 weeks, and the two speed optimizations tried so far (graph caching, worker parallelism) were both measured and rejected.</p>
+    <p><b style="color:var(--ink)">Uni-Mol2 fine-tuning support does not exist yet</b> (Section 06) &mdash; the comparison there is frozen-backbone only, matching Fusion/learned_fusion's scope in &sect;03, not ft_fusion's in &sect;04.</p>
+    <p><b style="color:var(--ink)">An AmpC (99.5M molecule, Figure 5) reproduction is in progress</b> in the same repository, extending this pipeline to a ~47&times; larger pool. Data is staged and verified aligned; three of the memory fixes above (bounded chunking, <code>CACHE_MOL</code> disabled, <code>--mem=0</code>) were made specifically because they're load-bearing at that scale. MPN's runtime at 99.5M is still an open problem &mdash; a naive linear extrapolation from the 2.1M numbers above puts a single MPN config at 2&ndash;3 weeks, and the two speed optimizations tried so far (graph caching, worker parallelism) were both measured and rejected. Uni-Mol2 embeddings for the full 99.5M AmpC pool have not been computed.</p>
   </div>
 </section>
 
 <footer>
-  <span>molpal-fusion-hts &middot; run_experiment.py / plot_figure4.py / plot_figures.py</span>
-  <span>Generated 2026-08-10</span>
+  <span>al-molecular &middot; run_experiment.py / plot_figure4.py / plot_figures.py</span>
+  <span>Updated 2026-08-13</span>
 </footer>

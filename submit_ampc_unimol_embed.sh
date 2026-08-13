@@ -7,7 +7,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=16
-#SBATCH --time=6:00:00
+#SBATCH --time=24:00:00
 #SBATCH --mem=32G
 #SBATCH -A r00939
 
@@ -42,7 +42,7 @@ TASK_ID="${SLURM_ARRAY_TASK_ID:?This script must be submitted with --array=0-69 
 source /N/slate/mengjing/miniconda3/etc/profile.d/conda.sh
 conda activate py310
 
-cd /N/slate/mengjing/repos/molpal-fusion-hts
+cd /N/slate/mengjing/repos/al-molecular
 mkdir -p logs
 
 # 4 conformer/collator worker processes (num_workers=4 below) each get

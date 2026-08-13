@@ -56,7 +56,7 @@ TASK_ID="${SLURM_ARRAY_TASK_ID:?This script must be submitted with --array=0-2 (
 source /N/slate/mengjing/miniconda3/etc/profile.d/conda.sh
 conda activate py310
 
-cd /N/slate/mengjing/repos/molpal-fusion-hts
+cd /N/slate/mengjing/repos/al-molecular
 mkdir -p logs
 
 export OMP_NUM_THREADS=4

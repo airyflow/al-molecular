@@ -96,8 +96,8 @@ def stitch(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backbone", required=True, choices=["grover", "molformer", "unimol"])
-    parser.add_argument("--dim", type=int, required=True, help="Embedding dim: grover=1600, molformer=768, unimol=512")
+    parser.add_argument("--backbone", required=True, choices=["grover", "molformer", "unimol", "unimol2"])
+    parser.add_argument("--dim", type=int, required=True, help="Embedding dim: grover=1600, molformer=768, unimol=512, unimol2=1536")
     parser.add_argument("--chunks-dir", required=True)
     parser.add_argument("--num-chunks", type=int, required=True)
     parser.add_argument("--total-count", type=int, required=True)

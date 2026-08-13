@@ -460,8 +460,8 @@ def parse_args():
              "fit on held-out backbone predictions each round (LearnedFusionSurrogate) "
              "-- no fine-tuning, cheap, comparable cost to ensemble",
     )
-    mve_grp.add_argument("--backbone", default="molformer", choices=["molformer", "grover", "unimol"])
-    mve_grp.add_argument("--backbones", nargs="+", default=["molformer"], choices=["molformer", "grover", "unimol"])
+    mve_grp.add_argument("--backbone", default="molformer", choices=["molformer", "grover", "unimol", "unimol2"])
+    mve_grp.add_argument("--backbones", nargs="+", default=["molformer"], choices=["molformer", "grover", "unimol", "unimol2"])
 
     mp_grp = p.add_argument_group("MolPAL model options (--mode molpal)")
     mp_grp.add_argument("--model", default="mpn", choices=["mpn", "rf", "nn"],

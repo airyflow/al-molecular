@@ -1,0 +1,35 @@
+=== chunk 10 on GPU1 ===
+[chunk 10/20] 107,075 molecules (indices [1070750, 1177825))  device=cuda
+[timeout] 'COC(=O)c1ccc(C(=O)OC)c2c(C(=O)OC)ccc(C(=O)OC)c12' -- falling back to 2D coordinates
+[timeout] 'CCOc1ccc2c(c1)C1(C)CC(C)(C)N2C(=O)N1c1ccc(Cl)c(Cl)c1' -- falling back to 2D coordinates
+Failed to generate 3D, replace with 2D: Bad Conformer Id
+[done] chunk 10: 107,075 embeddings (1536d) in 3227.1s (30.14 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00010.npy
+=== chunk 11 on GPU1 ===
+[chunk 11/20] 107,075 molecules (indices [1177825, 1284900))  device=cuda
+[done] chunk 11: 107,075 embeddings (1536d) in 2974.1s (27.78 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00011.npy
+=== chunk 12 on GPU1 ===
+[chunk 12/20] 107,075 molecules (indices [1284900, 1391975))  device=cuda
+[done] chunk 12: 107,075 embeddings (1536d) in 3026.7s (28.27 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00012.npy
+=== chunk 13 on GPU1 ===
+[chunk 13/20] 107,075 molecules (indices [1391975, 1499050))  device=cuda
+[done] chunk 13: 107,075 embeddings (1536d) in 3057.8s (28.56 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00013.npy
+=== chunk 14 on GPU1 ===
+[chunk 14/20] 107,075 molecules (indices [1499050, 1606125))  device=cuda
+[done] chunk 14: 107,075 embeddings (1536d) in 3002.4s (28.04 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00014.npy
+=== chunk 15 on GPU1 ===
+[chunk 15/20] 107,075 molecules (indices [1606125, 1713200))  device=cuda
+[done] chunk 15: 107,075 embeddings (1536d) in 3045.4s (28.44 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00015.npy
+=== chunk 16 on GPU1 ===
+[chunk 16/20] 107,075 molecules (indices [1713200, 1820275))  device=cuda
+[done] chunk 16: 107,075 embeddings (1536d) in 2917.3s (27.25 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00016.npy
+=== chunk 17 on GPU1 ===
+[chunk 17/20] 107,075 molecules (indices [1820275, 1927350))  device=cuda
+[done] chunk 17: 107,075 embeddings (1536d) in 2855.3s (26.67 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00017.npy
+=== chunk 18 on GPU1 ===
+[chunk 18/20] 107,075 molecules (indices [1927350, 2034425))  device=cuda
+Failed to generate 3D, replace with 2D: Bad Conformer Id
+[done] chunk 18: 107,075 embeddings (1536d) in 2654.6s (24.79 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00018.npy
+=== chunk 19 on GPU1 ===
+[chunk 19/20] 107,075 molecules (indices [2034425, 2141500))  device=cuda
+[done] chunk 19: 107,075 embeddings (1536d) in 2588.0s (24.17 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00019.npy
+GPU1_LOOP_DONE

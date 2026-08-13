@@ -360,8 +360,6 @@ class EnsembleFusionSurrogate:
     beta : exploration weight (default 0.2)
     """
 
-    _KEYS = ["grover", "molformer", "unimol"]
-
     def __init__(
         self,
         dims: dict,
@@ -371,6 +369,7 @@ class EnsembleFusionSurrogate:
         beta: float            = 0.2,
     ):
         self._dims = dims
+        self._keys = list(dims.keys())
         self._surrogates = {
             k: SingleBackboneMVESurrogate(
                 in_dim          = dims[k],
@@ -378,18 +377,18 @@ class EnsembleFusionSurrogate:
                 lr              = lr,
                 dropout         = dropout,
             )
-            for k in self._KEYS
+            for k in self._keys
         }
         self._beta = beta
 
     def _split(self, X: np.ndarray) -> dict:
-        cuts = np.cumsum([self._dims[k] for k in self._KEYS])
+        cuts = np.cumsum([self._dims[k] for k in self._keys])
         splits = np.split(X, cuts[:-1], axis=1)
-        return {k: s for k, s in zip(self._KEYS, splits)}
+        return {k: s for k, s in zip(self._keys, splits)}
 
     def fit(self, X: np.ndarray, y: np.ndarray, epochs: int = 50, batch: int = 256):
         parts = X if isinstance(X, dict) else self._split(X)
-        for k in self._KEYS:
+        for k in self._keys:
             self._surrogates[k].fit(parts[k], y, epochs=epochs, batch=batch)
 
     def predict(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -397,7 +396,7 @@ class EnsembleFusionSurrogate:
         n     = len(next(iter(parts.values())))
 
         borda = np.zeros(n, dtype=np.float64)
-        for k in self._KEYS:
+        for k in self._keys:
             mu, _ = self._surrogates[k].predict(parts[k])
             order = np.argsort(mu)[::-1]
             ranks = np.empty(n, dtype=np.float64)
@@ -433,8 +432,6 @@ class LearnedFusionSurrogate:
     dims : dict {"grover": int, "molformer": int, "unimol": int}
     """
 
-    _KEYS = ["grover", "molformer", "unimol"]
-
     def __init__(
         self,
         dims: dict,
@@ -443,6 +440,7 @@ class LearnedFusionSurrogate:
         dropout: float         = 0.25,
     ):
         self._dims = dims
+        self._keys = list(dims.keys())
         self._surrogates = {
             k: SingleBackboneMVESurrogate(
                 in_dim          = dims[k],
@@ -450,15 +448,15 @@ class LearnedFusionSurrogate:
                 lr              = lr,
                 dropout         = dropout,
             )
-            for k in self._KEYS
+            for k in self._keys
         }
         self._meta = RidgeCV(alphas=[0.01, 0.1, 1.0, 10.0, 100.0])
         self._meta_fitted = False
 
     def _split(self, X: np.ndarray) -> dict:
-        cuts = np.cumsum([self._dims[k] for k in self._KEYS])
+        cuts = np.cumsum([self._dims[k] for k in self._keys])
         splits = np.split(X, cuts[:-1], axis=1)
-        return {k: s for k, s in zip(self._KEYS, splits)}
+        return {k: s for k, s in zip(self._keys, splits)}
 
     def fit(self, X: np.ndarray, y: np.ndarray, epochs: int = 50, batch: int = 256):
         parts = X if isinstance(X, dict) else self._split(X)
@@ -473,19 +471,19 @@ class LearnedFusionSurrogate:
         parts_vl = {k: v[~tr_mask] for k, v in parts.items()}
         y_tr, y_vl = y[tr_mask], y[~tr_mask]
 
-        for k in self._KEYS:
+        for k in self._keys:
             self._surrogates[k].fit(parts_tr[k], y_tr, epochs=epochs, batch=batch)
 
         # Collect holdout predictions → feature matrix for meta-learner
         val_mus = np.stack(
-            [self._surrogates[k].predict(parts_vl[k])[0] for k in self._KEYS],
+            [self._surrogates[k].predict(parts_vl[k])[0] for k in self._keys],
             axis=1,
-        )  # (n_val, 3)
+        )  # (n_val, n_backbones)
         self._meta.fit(val_mus, y_vl)
         self._meta_fitted = True
 
         coef_str = "  ".join(f"{k}:{c:.3f}" for k, c in
-                              zip(self._KEYS, self._meta.coef_))
+                              zip(self._keys, self._meta.coef_))
         print(f"  [LearnedFusion] meta coef — {coef_str}  "
               f"bias:{self._meta.intercept_:.3f}  α={self._meta.alpha_:.3g}")
 
@@ -494,9 +492,9 @@ class LearnedFusionSurrogate:
         n     = len(next(iter(parts.values())))
 
         mus = np.stack(
-            [self._surrogates[k].predict(parts[k])[0] for k in self._KEYS],
+            [self._surrogates[k].predict(parts[k])[0] for k in self._keys],
             axis=1,
-        )  # (N, 3)
+        )  # (N, n_backbones)
 
         if self._meta_fitted:
             mu_out = self._meta.predict(mus).astype(np.float32)

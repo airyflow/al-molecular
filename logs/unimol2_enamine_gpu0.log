@@ -1,0 +1,33 @@
+=== chunk 0 on GPU0 ===
+[chunk 0/20] 107,075 molecules (indices [0, 107075))  device=cuda
+Failed to generate 3D, replace with 2D: Bad Conformer Id
+Failed to generate 3D, replace with 2D: Bad Conformer Id
+[done] chunk 0: 107,075 embeddings (1536d) in 1335.4s (12.47 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00000.npy
+=== chunk 1 on GPU0 ===
+[chunk 1/20] 107,075 molecules (indices [107075, 214150))  device=cuda
+[done] chunk 1: 107,075 embeddings (1536d) in 2424.0s (22.64 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00001.npy
+=== chunk 2 on GPU0 ===
+[chunk 2/20] 107,075 molecules (indices [214150, 321225))  device=cuda
+[done] chunk 2: 107,075 embeddings (1536d) in 2937.5s (27.43 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00002.npy
+=== chunk 3 on GPU0 ===
+[chunk 3/20] 107,075 molecules (indices [321225, 428300))  device=cuda
+[done] chunk 3: 107,075 embeddings (1536d) in 2933.6s (27.40 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00003.npy
+=== chunk 4 on GPU0 ===
+[chunk 4/20] 107,075 molecules (indices [428300, 535375))  device=cuda
+[done] chunk 4: 107,075 embeddings (1536d) in 2977.4s (27.81 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00004.npy
+=== chunk 5 on GPU0 ===
+[chunk 5/20] 107,075 molecules (indices [535375, 642450))  device=cuda
+[done] chunk 5: 107,075 embeddings (1536d) in 3025.8s (28.26 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00005.npy
+=== chunk 6 on GPU0 ===
+[chunk 6/20] 107,075 molecules (indices [642450, 749525))  device=cuda
+[done] chunk 6: 107,075 embeddings (1536d) in 3094.2s (28.90 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00006.npy
+=== chunk 7 on GPU0 ===
+[chunk 7/20] 107,075 molecules (indices [749525, 856600))  device=cuda
+[done] chunk 7: 107,075 embeddings (1536d) in 3011.1s (28.12 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00007.npy
+=== chunk 8 on GPU0 ===
+[chunk 8/20] 107,075 molecules (indices [856600, 963675))  device=cuda
+[done] chunk 8: 107,075 embeddings (1536d) in 2938.8s (27.45 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00008.npy
+=== chunk 9 on GPU0 ===
+[chunk 9/20] 107,075 molecules (indices [963675, 1070750))  device=cuda
+[done] chunk 9: 107,075 embeddings (1536d) in 2962.2s (27.67 ms/mol) -> results/embed/EnamineHTS/_unimol2_chunks/unimol2_embeddings_chunk_00009.npy
+GPU0_LOOP_DONE

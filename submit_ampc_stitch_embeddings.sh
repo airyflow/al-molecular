@@ -42,7 +42,7 @@ esac
 source /N/slate/mengjing/miniconda3/etc/profile.d/conda.sh
 conda activate py310
 
-cd /N/slate/mengjing/repos/molpal-fusion-hts
+cd /N/slate/mengjing/repos/al-molecular
 mkdir -p logs
 
 AMPC_ROOT="/N/project/SingleCell_Image/mengjing/ampc_99.5M"

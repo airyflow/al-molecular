@@ -1,0 +1,7 @@
+{
+  "round": 3,
+  "n_labeled": 18,
+  "best_score": -9.89890801279837,
+  "topk_recall": 1.0,
+  "elapsed": 0.28
+}

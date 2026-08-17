@@ -613,17 +613,50 @@ footer {
 </section>
 
 <section>
-  <div class="section-head"><span class="section-num">07</span><h2>Caveats &amp; next steps</h2></div>
+  <div class="section-head"><span class="section-num">07</span><h2>AmpC 99.5M: scaling the frozen-fusion model to a 47&times; larger pool</h2></div>
+  <div class="prose">
+    <p>A first probe of the <code>Fusion</code> (ensemble) surrogate from &sect;03 &mdash; same three frozen backbones (GROVER, MoLFormer, UniMol), same Borda rank-sum combination, same greedy acquisition, same 0.1% init/batch fraction and 5 rounds &mdash; run against AmpC &beta;-lactamase (DOCK3.7 scores, sourced from Balius et al.'s Figshare release, not redocked here), a 99,459,561-molecule pool instead of Enamine HTS's 2.1M. Top-<i>k</i> is fixed at 50,000 rather than 1,000, keeping the two setups at the same percentile (&asymp;0.05% of pool either way). Prediction over the full pool each round is delegated to a pool of 7 persistent single-GPU workers (chunked-prediction parallelization); surrogate training itself stays single-process, since the MVE heads are tiny relative to what dominates AL-loop cost at this scale.</p>
+    <p>One shard (12,432,439 molecules, &asymp;12.5% of the pool) is permanently excluded from candidate selection for this run &mdash; see Engineering notes below. Any true top-50,000 molecule inside that range can never be found here, which caps the achievable recall below 100% regardless of round count.</p>
+  </div>
+
+  <h3>Round-by-round results</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th class="num">Round</th><th class="num">Labeled</th><th class="num">Best (kcal/mol)</th><th class="num">Top-50,000 recall</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td class="num">198,920</td><td class="num">&minus;98.980</td><td class="num">5.8%</td></tr>
+        <tr><td class="num">2</td><td class="num">298,380</td><td class="num">&minus;98.980</td><td class="num">16.7%</td></tr>
+        <tr><td class="num">3</td><td class="num">397,729</td><td class="num">&minus;98.980</td><td class="num">24.6%</td></tr>
+        <tr><td class="num">4</td><td class="num">497,189</td><td class="num">&minus;98.980</td><td class="num">30.8%</td></tr>
+        <tr><td class="num">5</td><td class="num">596,649</td><td class="num">&minus;98.980</td><td class="num"><b>35.2%</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose"><p style="margin-top:14px">The best score found stopped improving after round 2 &mdash; but recall kept climbing every round with no sign of flattening (+10.9, +7.9, +6.2, +4.4 points round-over-round), suggesting more rounds would keep helping rather than the run having converged.</p></div>
+
+  <div class="callout">
+    <b>Compare against &sect;03's closest analog &mdash; Fusion, greedy, 0.1% batch, 5 rounds, on the 2.1M pool: 72.2% recall in 5.7&nbsp;minutes.</b> AmpC reaches 35.2% under the identical algorithm/acquisition/batch-fraction/round-count, in several hours instead of minutes. Read this gap cautiously, not as "the method breaks at scale": both a 47&times; larger, more chemically diverse candidate pool and the 12.5% of the pool permanently excluded here would suppress recall independent of surrogate quality, and this run is a single seed, explicitly a first timing probe rather than a tuned campaign.
+  </div>
+
+  <h3>Engineering notes</h3>
+  <div class="prose">
+    <p><b style="color:var(--ink)">Embedding files landed on a single, unstriped Lustre storage target.</b> All three backbones' embedding arrays (593&nbsp;GB grover, 285&nbsp;GB molformer, 190&nbsp;GB unimol) were written with the filesystem default stripe count of 1 &mdash; every scattered, fancy-indexed read (the AL loop's own labeled-set fetch, and one shard's per-chunk correction reads) funneled through one disk/controller regardless of how far apart the requested rows were. Confirmed I/O-bound rather than compute-bound via <code>nvidia-smi</code> showing 0% GPU utilization during a 2+ hour stall. Fixed by re-stitching all three from their existing per-chunk files into new 28-way-striped copies (pure I/O, no re-extraction; spot-verified bit-identical to the originals on a 2,000-row sample). One shard's per-round fetch continued to hang unpredictably even after striping (traced to ~192,000 within-shard duplicate SMILES breaking a contiguous-read optimization used elsewhere) and was excluded from this run rather than debugged further.</p>
+    <p><b style="color:var(--ink)">A specific compute node produced a reproducible CUDA "illegal instruction" crash during surrogate training.</b> Happened identically, at the same call site, on two independent job submissions. Ruled out as a data or software issue by re-running the exact crashing 298,269-row batch (recovered from a snapshot written moments before each crash) on different GPU hardware with the same PyTorch/CUDA build &mdash; trained cleanly there. Both crashes traced to the same node via <code>sacct</code>; worked around with <code>sbatch --exclude</code>, not root-caused further.</p>
+  </div>
+</section>
+
+<section>
+  <div class="section-head"><span class="section-num">08</span><h2>Caveats &amp; next steps</h2></div>
   <div class="prose">
     <p><b style="color:var(--ink)">Single seed through &sect;05.</b> Every number in Sections 02&ndash;05 is one run, not a mean over repeats &mdash; small gaps between methods (e.g. 95.6% vs. 97.7% vs. 97.3% at the top of the pack) shouldn't be read as a confident ranking yet. &sect;06 is the exception, run with three seeds specifically to address this for the Uni-Mol2 comparison.</p>
     <p><b style="color:var(--ink)">RF's non-monotonic batch-size result</b> (Section 02) reproduced identically on independent GPU and CPU hardware, so it isn't a fluke of one run &mdash; but it's still unexplained and worth understanding before it appears in anything citable.</p>
     <p><b style="color:var(--ink)">ft_fusion is greedy-only so far</b> (Section 04), matching the scope MoLFormer-ft and Fusion were first run at before UCB was added &mdash; a UCB sweep would let it join the full &sect;03 comparison directly rather than sitting alongside it.</p>
     <p><b style="color:var(--ink)">Uni-Mol2 fine-tuning support does not exist yet</b> (Section 06) &mdash; the comparison there is frozen-backbone only, matching Fusion/learned_fusion's scope in &sect;03, not ft_fusion's in &sect;04.</p>
-    <p><b style="color:var(--ink)">An AmpC (99.5M molecule, Figure 5) reproduction is in progress</b> in the same repository, extending this pipeline to a ~47&times; larger pool. Data is staged and verified aligned; three of the memory fixes above (bounded chunking, <code>CACHE_MOL</code> disabled, <code>--mem=0</code>) were made specifically because they're load-bearing at that scale. MPN's runtime at 99.5M is still an open problem &mdash; a naive linear extrapolation from the 2.1M numbers above puts a single MPN config at 2&ndash;3 weeks, and the two speed optimizations tried so far (graph caching, worker parallelism) were both measured and rejected. Uni-Mol2 embeddings for the full 99.5M AmpC pool have not been computed.</p>
+    <p><b style="color:var(--ink)">AmpC (99.5M molecule, Figure 5)</b> is now reported in &sect;07, but as a single-seed first probe, not a tuned campaign &mdash; a 47&times; larger pool than everything above, with one shard (&asymp;12.5% of it) permanently excluded from candidacy, and recall still climbing at the final round rather than converged. MPN's runtime at 99.5M remains an open problem &mdash; a naive linear extrapolation from the 2.1M numbers above puts a single MPN config at 2&ndash;3 weeks, and the two speed optimizations tried against that in &sect;05 (graph caching, worker parallelism) were both measured and rejected, so only the <code>Fusion</code> surrogate has been attempted at this scale so far. Uni-Mol2 embeddings for the full 99.5M AmpC pool have not been computed.</p>
   </div>
 </section>
 
 <footer>
   <span>al-molecular &middot; run_experiment.py / plot_figure4.py / plot_figures.py</span>
-  <span>Updated 2026-08-13</span>
+  <span>Updated 2026-08-16</span>
 </footer>

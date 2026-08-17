@@ -180,7 +180,18 @@ def load_chunk_dataset(chunk_smiles: list, shard_path: Path, config):
     dataset._lbs = np.zeros((n, 1), dtype=np.float32)
     dataset._masks = np.ones((n, 1), dtype=np.float32)
     dataset._ori_ids = None
-    dataset._atoms, dataset._coordinates = load_lmdb(str(shard_path), ["atoms", "coordinates"])
+    dataset._atoms, coordinates = load_lmdb(str(shard_path), ["atoms", "coordinates"])
+    # generate_unimol_conformers_chunk.py's smiles_to_coords(n_conformer=1) ALWAYS
+    # appends a 2D-fallback conformer in ADDITION to the 1 requested 3D conformer
+    # (see muben.utils.chem.smiles_to_coords: "coordinates.append(smiles_to_2d_coords(...))"
+    # runs unconditionally, not just on failure) -- so each shard record actually
+    # stores 2 conformers, not 1. process_inference() correctly (by design) loops
+    # over every stored conformer, so leaving this alone silently doubles every
+    # embedding row (verified directly: chunk 0 shipped 2,841,702 rows for
+    # 1,420,851 molecules -- exactly 2x -- before this fix). Keep only the first
+    # (real, or 2D-fallback-on-failure) conformer per molecule -- index 0 is
+    # always the primary one Stage 1 intended, index 1 is the always-appended extra.
+    dataset._coordinates = [c[:1] for c in coordinates]
     assert len(dataset._atoms) == n, (
         f"Shard {shard_path} has {len(dataset._atoms)} records but the chunk has {n} SMILES -- "
         f"mismatched chunk boundaries (wrong --num-chunks/--total-count?) or an incomplete shard."
@@ -199,6 +210,25 @@ def compute_embeddings_for_chunk(
 
     config = _UniMolConfig(checkpoint_path=checkpoint_path)
     dataset, unimol_dict = load_chunk_dataset(chunk_smiles, shard_path, config)
+
+    # UniMol.__init__ builds `hidden_layer` (the final Linear that produces
+    # the returned embedding, applied to encoder_rep[:, 0, :]) AFTER
+    # init_bert_params runs, then loads the pretrained checkpoint with
+    # strict=False -- the checkpoint doesn't cover hidden_layer's weights
+    # (confirmed: it's a downstream projection head, not part of generic
+    # pretraining), so hidden_layer is left at whatever PyTorch's default
+    # random init gave it. With no fixed seed, every separate process that
+    # constructs this model (i.e. every chunk task, each a distinct SLURM
+    # array task / distinct Python process) gets its OWN independent
+    # random projection -- meaning different chunks' embeddings would live
+    # in mutually incomparable random spaces, not just be individually
+    # "untrained". Fixing the seed here makes every chunk's hidden_layer
+    # bit-identical, so the whole pool is at least internally coherent
+    # (still an untrained/arbitrary final projection, but consistently the
+    # same one everywhere). Chosen arbitrarily; must never change once any
+    # chunk has been computed with it, or re-running a subset of chunks
+    # would silently reintroduce the same incoherence this fixes.
+    torch.manual_seed(20260813)
 
     collator = CollatorUniMol(config, unimol_dict)
     pad_idx = unimol_dict.pad()

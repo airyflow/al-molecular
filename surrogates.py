@@ -22,6 +22,8 @@ BigFusionSurrogate
     predict() returns the Borda acquisition score as mu and zeros as sigma.
 """
 
+import time
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -123,11 +125,28 @@ def _train_model(
     batch: int,
     lr: float,
 ):
-    """Shared training loop for any _DualMVEModel."""
-    Xt = torch.tensor(X,      dtype=torch.float32)
-    yt = torch.tensor(y_norm, dtype=torch.float32)
-    loader = DataLoader(TensorDataset(Xt, yt), batch_size=batch, shuffle=True,
-                        drop_last=False, pin_memory=(DEVICE.type == "cuda"))
+    """Shared training loop for any _DualMVEModel.
+
+    Data is uploaded to DEVICE ONCE and shuffled/sliced on-GPU per batch,
+    instead of DataLoader's synchronous CPU-side batching + a fresh
+    CPU->GPU transfer every single step. For a model this small, per-step
+    transfer/dispatch overhead -- not compute -- dominates wall-clock time
+    once the labeled set gets large (measured at AmpC scale: round 1's
+    99,460-molecule labeled set x 50 epochs x 3 backbones is ~58,350
+    steps; DataLoader's per-batch .to(DEVICE) alone means that many
+    separate small H2D transfers). Whole-dataset upload is safe here even
+    at AmpC's largest labeled sets (~500K rows x up to 1600-d columns is a
+    few GB, trivial for one GPU).
+
+    NOTE: this changes the exact training trajectory (torch.randperm-based
+    shuffling instead of DataLoader's RandomSampler) even at unchanged
+    epochs/batch -- statistically equivalent, but not bit-identical to
+    training runs from before this change (e.g. the published EnamineHTS
+    report numbers, if ever exactly re-run).
+    """
+    n = X.shape[0]
+    Xt = torch.tensor(X,      dtype=torch.float32, device=DEVICE)
+    yt = torch.tensor(y_norm, dtype=torch.float32, device=DEVICE)
 
     opt    = torch.optim.AdamW(model.parameters(), lr=lr)
     use_amp = DEVICE.type == "cuda"
@@ -135,8 +154,10 @@ def _train_model(
 
     model.train()
     for _ in range(epochs):
-        for xb, yb in loader:
-            xb, yb = xb.to(DEVICE), yb.to(DEVICE)
+        perm = torch.randperm(n, device=DEVICE)
+        for start in range(0, n, batch):
+            idx = perm[start : start + batch]
+            xb, yb = Xt[idx], yt[idx]
             opt.zero_grad()
             with _amp_context(use_amp):
                 mu, var = model(xb)
@@ -367,6 +388,8 @@ class EnsembleFusionSurrogate:
         lr: float              = 3e-4,
         dropout: float         = 0.25,
         beta: float            = 0.2,
+        epochs: int            = 50,
+        batch: int             = 256,
     ):
         self._dims = dims
         self._keys = list(dims.keys())
@@ -380,16 +403,29 @@ class EnsembleFusionSurrogate:
             for k in self._keys
         }
         self._beta = beta
+        # Defaults for fit()'s epochs/batch params below -- overridable per
+        # call, but this is what a caller that never passes them (the only
+        # caller in practice: EmbeddingMVEModel.train()) actually gets.
+        # Configurable via run_experiment.py's --epochs/--train-batch-size
+        # so AmpC-scale runs (huge labeled sets -> huge step counts at the
+        # historical epochs=50 default) can be tuned without editing code.
+        self._epochs = epochs
+        self._batch = batch
 
     def _split(self, X: np.ndarray) -> dict:
         cuts = np.cumsum([self._dims[k] for k in self._keys])
         splits = np.split(X, cuts[:-1], axis=1)
         return {k: s for k, s in zip(self._keys, splits)}
 
-    def fit(self, X: np.ndarray, y: np.ndarray, epochs: int = 50, batch: int = 256):
+    def fit(self, X: np.ndarray, y: np.ndarray, epochs: int = None, batch: int = None):
+        epochs = self._epochs if epochs is None else epochs
+        batch = self._batch if batch is None else batch
         parts = X if isinstance(X, dict) else self._split(X)
         for k in self._keys:
+            t0 = time.perf_counter()
             self._surrogates[k].fit(parts[k], y, epochs=epochs, batch=batch)
+            print(f"  [EnsembleFusion] {k}: trained {epochs} epochs on {len(y):,} molecules "
+                  f"in {time.perf_counter() - t0:.1f}s", flush=True)
 
     def predict(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         parts = X if isinstance(X, dict) else self._split(X)
@@ -438,6 +474,8 @@ class LearnedFusionSurrogate:
         spearman_weight: float = 0.1,
         lr: float              = 3e-4,
         dropout: float         = 0.25,
+        epochs: int            = 50,
+        batch: int             = 256,
     ):
         self._dims = dims
         self._keys = list(dims.keys())
@@ -452,13 +490,21 @@ class LearnedFusionSurrogate:
         }
         self._meta = RidgeCV(alphas=[0.01, 0.1, 1.0, 10.0, 100.0])
         self._meta_fitted = False
+        # See EnsembleFusionSurrogate's matching comment: defaults for fit()
+        # when the caller (always EmbeddingMVEModel.train() in practice)
+        # never overrides them. Configurable via run_experiment.py's
+        # --epochs/--train-batch-size.
+        self._epochs = epochs
+        self._batch = batch
 
     def _split(self, X: np.ndarray) -> dict:
         cuts = np.cumsum([self._dims[k] for k in self._keys])
         splits = np.split(X, cuts[:-1], axis=1)
         return {k: s for k, s in zip(self._keys, splits)}
 
-    def fit(self, X: np.ndarray, y: np.ndarray, epochs: int = 50, batch: int = 256):
+    def fit(self, X: np.ndarray, y: np.ndarray, epochs: int = None, batch: int = None):
+        epochs = self._epochs if epochs is None else epochs
+        batch = self._batch if batch is None else batch
         parts = X if isinstance(X, dict) else self._split(X)
         n     = len(y)
 
@@ -472,7 +518,10 @@ class LearnedFusionSurrogate:
         y_tr, y_vl = y[tr_mask], y[~tr_mask]
 
         for k in self._keys:
+            t0 = time.perf_counter()
             self._surrogates[k].fit(parts_tr[k], y_tr, epochs=epochs, batch=batch)
+            print(f"  [LearnedFusion] {k}: trained {epochs} epochs on {len(y_tr):,} molecules "
+                  f"in {time.perf_counter() - t0:.1f}s", flush=True)
 
         # Collect holdout predictions → feature matrix for meta-learner
         val_mus = np.stack(

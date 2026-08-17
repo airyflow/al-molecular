@@ -1,0 +1,23 @@
+[
+  {
+    "round": 1,
+    "n_labeled": 10,
+    "best_score": -9.89890801279837,
+    "topk_recall": 0.8,
+    "elapsed": 1.75
+  },
+  {
+    "round": 2,
+    "n_labeled": 14,
+    "best_score": -9.89890801279837,
+    "topk_recall": 0.8,
+    "elapsed": 0.28
+  },
+  {
+    "round": 3,
+    "n_labeled": 18,
+    "best_score": -9.89890801279837,
+    "topk_recall": 1.0,
+    "elapsed": 0.28
+  }
+]

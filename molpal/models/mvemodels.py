@@ -56,7 +56,45 @@ class EmbeddingMVEModel(Model):
 
     def _get_X(self, xs: Sequence[str]) -> np.ndarray:
         idxs = [self.smi2idx[s] for s in xs]
-        parts = [emb[idxs] for emb in self.emb_dict.values()]
+        # xs is normally an ordered slice of the pool (chunked/sharded
+        # prediction -- see predict_pool_shard_worker.py), so idxs is
+        # normally a contiguous ascending run -- EXCEPT wherever xs contains
+        # a SMILES that also occurs elsewhere in the pool: smi2idx (built by
+        # enumerate(), last-write-wins) maps every occurrence of a duplicate
+        # string to the SAME single index, breaking that one position's
+        # contiguity. This is not rare -- AmpC's shard 7 alone has 191,866
+        # within-shard duplicate SMILES (~1.5%), enough that EVERY 50,000-row
+        # chunk has a handful of mismatched positions, so requiring perfect
+        # contiguity essentially never fires there.
+        #
+        # Fetch the EXPECTED contiguous range as one fast slice regardless,
+        # then patch just the mismatched positions with a small, separately
+        # fancy-indexed correction. Scattered reads of a handful of rows are
+        # cheap; it's scattered reads of tens of thousands that were the
+        # actual problem -- confirmed via py-spy: a worker genuinely stuck
+        # for 5+ minutes on a single fully-fancy-indexed 50,000-row read of a
+        # single-OST (unstriped, lfs getstripe-confirmed) embedding file,
+        # while a contiguous slice of the identical byte range was
+        # near-instant.
+        n = len(idxs)
+        if n == 0:
+            parts = [emb[idxs] for emb in self.emb_dict.values()]
+        else:
+            base = idxs[0]
+            mismatches = [i for i, v in enumerate(idxs) if v != base + i]
+            if not mismatches:
+                sl = slice(base, base + n)
+                parts = [emb[sl] for emb in self.emb_dict.values()]
+            elif len(mismatches) < max(1, n // 20):  # < 5% mismatched -- patch, don't fully fancy-index
+                sl = slice(base, base + n)
+                correct_idxs = [idxs[i] for i in mismatches]
+                parts = []
+                for emb in self.emb_dict.values():
+                    block = np.array(emb[sl])  # materialize so rows can be overwritten
+                    block[mismatches] = emb[correct_idxs]
+                    parts.append(block)
+            else:
+                parts = [emb[idxs] for emb in self.emb_dict.values()]
         return np.concatenate(parts, axis=1)  # (n, D_total)
 
     def train(
@@ -66,16 +104,29 @@ class EmbeddingMVEModel(Model):
         *,
         featurizer: Optional[Callable] = None,
         retrain: bool = False,
+        epochs: Optional[int] = None,
+        batch: Optional[int] = None,
         **kwargs,
     ) -> bool:
         xs = list(xs)
         X = self._get_X(xs)
+        # None (the default) means "use the surrogate class's own default" --
+        # only overridden when the caller (e.g. run_experiment.py's
+        # --surrogate-epochs/--surrogate-batch) explicitly asks. Not every
+        # surrogate.fit() accepts these kwargs (scheduled fine-tuning
+        # surrogates have a different signature), so they're only forwarded
+        # when actually given.
+        fit_kwargs = {}
+        if epochs is not None:
+            fit_kwargs["epochs"] = epochs
+        if batch is not None:
+            fit_kwargs["batch"] = batch
         # Scheduled fine-tuning surrogates (needs_smiles=True) require the actual
         # SMILES strings in Phase 2 so they can run BackboneFinetuner.finetune().
         if getattr(self.surrogate, "needs_smiles", False):
-            self.surrogate.fit(X, ys, labeled_smiles=xs)
+            self.surrogate.fit(X, ys, labeled_smiles=xs, **fit_kwargs)
         else:
-            self.surrogate.fit(X, ys)
+            self.surrogate.fit(X, ys, **fit_kwargs)
         # Propagate embedding-refresh signal from scheduled fine-tuning surrogates
         self.embeddings_refreshed = getattr(self.surrogate, "embeddings_refreshed", False)
         return True

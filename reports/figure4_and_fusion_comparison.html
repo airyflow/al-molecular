@@ -656,7 +656,34 @@ footer {
   </div>
 </section>
 
+<section>
+  <div class="section-head"><span class="section-num">09</span><h2>LT-All reproduction: two new backbones, and does fusion architecture explain the gap to a published result?</h2></div>
+  <div class="prose">
+    <p>A published paper ("Scalable Active-Learning Virtual Screening with Reusable Multi-View Molecular Representations", draft, reports LT-All: five frozen backbones &mdash; GROVER, MoLFormer, Uni-Mol2-1.1B, SMI-TED, MHG-GED &mdash; fused and screened on this exact same Enamine HTS pool, greedy acquisition, 0.1% batch fraction) reports <b style="color:var(--ink)">87.54%</b> top-1,000 recovery, well above every number in &sect;03&ndash;06 above (all of which used at most three backbones). Two of the five backbones &mdash; SMI-TED (IBM <code>materials.smi-ted</code>, encoder-decoder transformer, embedding dim 768) and MHG-GED (IBM <code>materials.mhg-ged</code>, GNN encoder + hypergraph-grammar decoder, embedding dim 1024, confirmed empirically &mdash; not published on IBM's own model card) were not previously integrated into this pipeline. Getting them extracted required vendoring IBM's loader code (<code>ibm_materials/</code>, cloned from <code>github.com/IBM/materials</code>) and two new chunked extraction scripts; MHG-GED specifically needed the same SLURM-array sharding treatment as GROVER (&sect;02's note), since its <code>encode()</code> loops one molecule at a time internally (267.86&nbsp;ms/mol measured, single-process &rarr; &asymp;159&nbsp;hours for the full 2.1M pool, vs. &asymp;3.2&nbsp;hours sharded across 50 tasks). A real bug surfaced during that extraction &mdash; a hardcoded pool count (2,141,515, the original library's documented size) didn't match the actual canonical-SMILES file used for extraction (2,141,500 lines, confirmed via <code>wc -l</code> and matching &sect;02's own script) &mdash; caught by the stitch step's per-chunk row-count validation on the last of 50 shards; recovered by re-stitching all 50 chunks' <i>actual</i> row counts with a running cumulative offset rather than re-running the extraction, since the underlying per-chunk data was already complete and correctly ordered.</p>
+    <p>With all five backbones' embeddings in hand, the question became: does <b style="color:var(--ink)">fusion architecture</b> explain the gap between this pipeline's Borda-rank-vote <code>Fusion</code> surrogate (&sect;03, three independently-trained per-backbone models, combined only by summing ranks at inference &mdash; no cross-backbone interaction is ever learned) and the paper's approach (one shared MLP trained jointly on all backbones' <i>concatenated</i> embeddings, with a learned per-source weight)? Three runs, same pool, same 0.1% batch fraction, same 5 rounds, same random seed, isolate this one variable:</p>
+  </div>
+
+  <h3>Round-by-round top-k recall, 5 backbones (GROVER + MoLFormer + Uni-Mol2 + SMI-TED + MHG-GED), greedy, 0.1% batch</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th class="num">Round</th><th class="num">Labeled</th><th class="num">Fusion (Borda-rank vote)</th><th class="num">LTAll (single model, learned concat)</th><th class="num">LTAll (5-member ensemble)</th><th class="num">Paper (LT-All, 5-seed mean)</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td class="num">4,284</td><td class="num">24.5%</td><td class="num">17.0%</td><td class="num">19.7%</td><td class="num">&mdash;</td></tr>
+        <tr><td class="num">2</td><td class="num">6,426</td><td class="num">52.5%</td><td class="num">47.2%</td><td class="num">51.9%</td><td class="num">62.24% &plusmn; 1.91% <span style="color:var(--ink-faint)">(&asymp;6,312 labeled)</span></td></tr>
+        <tr><td class="num">3</td><td class="num">8,568</td><td class="num">65.5%</td><td class="num">65.3%</td><td class="num">67.6%</td><td class="num">&mdash;</td></tr>
+        <tr><td class="num">4</td><td class="num">10,710</td><td class="num">72.6%</td><td class="num">75.2%</td><td class="num">75.9%</td><td class="num">&mdash;</td></tr>
+        <tr><td class="num">5</td><td class="num">12,852</td><td class="num">77.1%</td><td class="num">80.4%</td><td class="num"><b>81.5%</b></td><td class="num"><b>87.54% &plusmn; 0.75%</b> <span style="color:var(--ink-faint)">(&asymp;12,624 labeled)</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose"><p style="margin-top:14px">Best score found (&minus;12.700&nbsp;kcal/mol, the pool's true optimum) was reached by round 2&ndash;3 in every run here, same as &sect;03&ndash;07 &mdash; all differences above are recall-efficiency, not final-answer quality. <code>LTAll</code>'s architecture: per-source softmax-weighted concatenation (temperature &tau;=1, not specified in the paper &mdash; assumed) into one D=5,696-dim vector, then a shared MLP (1024&rarr;512 hidden, LayerNorm, dropout 0.2, 256-dim head) trained with AdamW (lr 5e-4, weight decay 1e-5, batch 8,192, 200 epochs, grad-norm clip 1.0), matching the paper's stated equations as closely as its text allows. The 5-member ensemble version additionally reinitializes and retrains M=5 independent copies every round (M's value is not given a specific number in the paper; assumed) and averages their predictions, matching the paper's own description of "ensemble members... retrained independently at every round" for its primary reported numbers, not only its optional uncertainty-aware variant.</p></div>
+
+  <div class="callout">
+    <b>Fusion architecture is a real, measurable part of the gap &mdash; but not all of it.</b> Moving from Borda-rank voting to a jointly-trained shared MLP over concatenated embeddings improved final recall by +3.3 points (77.1%&rarr;80.4%) using the identical embeddings, pool, and budget; adding the 5-member ensemble added another +1.1 (&rarr;81.5%). That leaves &asymp;6 points unaccounted for at the final round, and a notably larger &asymp;10-point gap at the round-2 checkpoint (51.9% vs. 62.24%&plusmn;1.91%) &mdash; a gap that size, at that checkpoint, is unlikely to be pure single-seed variance given the paper's own reported spread. Two unresolved, flagged-not-fixed deviations are the more likely remaining causes: (1) our five backbones' embedding dims sum to 5,696, not the paper's stated 5,120 &mdash; most plausibly a different Uni-Mol2 pooling/projection on their end that couldn't be resolved without their code; (2) two hyperparameters the paper's text doesn't give numeric values for (softmax temperature &tau;, ensemble size M) were assumed rather than matched. This is one seed on our side against the paper's five-seed mean, so some of the remaining gap is legitimately unresolved rather than definitively attributable.
+  </div>
+</section>
+
 <footer>
-  <span>al-molecular &middot; run_experiment.py / plot_figure4.py / plot_figures.py</span>
-  <span>Updated 2026-08-16</span>
+  <span>al-molecular &middot; run_experiment.py / plot_figure4.py / plot_figures.py / surrogates.py:LTAllSurrogate</span>
+  <span>Updated 2026-08-18</span>
 </footer>

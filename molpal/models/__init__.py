@@ -145,6 +145,7 @@ def mve(
         LightweightMoLFormerScheduleSurrogate,
         SingleBackboneFinetuneScheduleSurrogate,
         FTFusionSurrogate,
+        LTAllSurrogate,
     )
     from molpal.models.mvemodels import EmbeddingMVEModel, SingleBackboneEmbeddingModel
 
@@ -169,6 +170,10 @@ def mve(
 
     if surrogate_type == "ensemble":
         surrogate = EnsembleFusionSurrogate(dims=dims)
+        return EmbeddingMVEModel(surrogate, emb_dict, pool_smiles, **kwargs)
+
+    if surrogate_type == "ltall":
+        surrogate = LTAllSurrogate(dims=dims)
         return EmbeddingMVEModel(surrogate, emb_dict, pool_smiles, **kwargs)
 
     if surrogate_type == "learned":

@@ -852,7 +852,7 @@ def parse_args():
     mve_grp = p.add_argument_group("MVE surrogate options (--mode mve)")
     mve_grp.add_argument(
         "--surrogate", default="ft_molformer_single",
-        choices=["single", "ft_molformer_single", "ensemble", "ft_fusion", "learned"],
+        choices=["single", "ft_molformer_single", "ensemble", "ft_fusion", "learned", "ltall"],
         help="ft_molformer_single = method [2] (MoLFormer, fine-tuned each round); "
              "ensemble = method [3] (\"our fusion model\", EnsembleFusionSurrogate); "
              "ft_fusion = grover+molformer fine-tuned jointly each round, unimol frozen "
@@ -860,10 +860,15 @@ def parse_args():
              "made memory-safe the same way -- see surrogates.py docstring); "
              "learned = 3 frozen per-backbone models combined by a RidgeCV meta-learner "
              "fit on held-out backbone predictions each round (LearnedFusionSurrogate) "
-             "-- no fine-tuning, cheap, comparable cost to ensemble",
+             "-- no fine-tuning, cheap, comparable cost to ensemble; "
+             "ltall = reproduction of the LT-All paper's fusion architecture "
+             "(LTAllSurrogate): learned per-source-weighted concatenation of ALL "
+             "backbones into one shared MLP (1024/512 hidden, LayerNorm), trained "
+             "jointly (not per-backbone) with a fresh reinit every round -- see "
+             "surrogates.py's LTAllSurrogate docstring for the exact paper mapping",
     )
-    mve_grp.add_argument("--backbone", default="molformer", choices=["molformer", "grover", "unimol", "unimol2"])
-    mve_grp.add_argument("--backbones", nargs="+", default=["molformer"], choices=["molformer", "grover", "unimol", "unimol2"])
+    mve_grp.add_argument("--backbone", default="molformer", choices=["molformer", "grover", "unimol", "unimol2", "smited", "mhgged"])
+    mve_grp.add_argument("--backbones", nargs="+", default=["molformer"], choices=["molformer", "grover", "unimol", "unimol2", "smited", "mhgged"])
     mve_grp.add_argument("--parallel-predict", action="store_true",
                           help="Delegate per-round pool prediction to a persistent pool of single-GPU "
                                "workers (predict_pool_shard_worker.py) instead of predicting in-process. "

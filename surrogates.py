@@ -1473,3 +1473,196 @@ class FTFusionSurrogate:
     def predict(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         mu_n, sig_n = _predict_model(self._lightweight, X)
         return mu_n * self._ys + self._ym, sig_n
+
+
+# ── LTAllSurrogate ───────────────────────────────────────────────────────────
+# Reproduction of "LT-All" (Scalable Active-Learning Virtual Screening with
+# Reusable Multi-View Molecular Representations", AI_Drug_Qualifications 2.pdf,
+# Section "Multi-Representation Fusion and Lightweight Surrogate"). Built to
+# test whether EnsembleFusionSurrogate's Borda-rank late-fusion (independent
+# per-backbone models, combined only by rank at inference) explains the gap
+# vs. the paper's reported ENHITS greedy-0.1% result (87.54%) relative to our
+# own EnsembleFusionSurrogate run (77.1%) -- this class instead does genuine
+# early fusion: concatenate all backbones' embeddings (with a learned
+# per-source weight, Eq 1-2) and train ONE shared MLP over the fused vector
+# (Eq 4-13), jointly, not per-backbone.
+#
+# Known deviation from the paper: our 5 backbones' embedding dims sum to
+# 5,696 (grover=1600, molformer=768, unimol2=1536, smited=768, mhgged=1024,
+# all measured directly via this repo's own EmbeddingFeaturizer), not the
+# paper's stated 5,120 -- likely a different Uni-Mol2 pooling/projection on
+# their end we can't fully resolve without their code. Everything else below
+# follows the paper's stated equations/hyperparameters as closely as
+# possible: temperature tau is NOT given a specific value in the text, so
+# tau=1.0 (standard softmax) is assumed.
+
+class _SourceWeightedFusion(nn.Module):
+    """Learnable per-source softmax weighting + concatenation (paper Eq 1-2).
+
+    At init (equal logits), alpha_k = 1/K and s_k = K*alpha_k = 1, so this is
+    exactly equivalent to ordinary unweighted concatenation until training
+    moves the logits.
+    """
+
+    def __init__(self, keys: list, tau: float = 1.0):
+        super().__init__()
+        self._keys = keys
+        self._tau = tau
+        self.logits = nn.Parameter(torch.zeros(len(keys)))
+
+    def forward(self, parts: dict) -> torch.Tensor:
+        alpha = F.softmax(self.logits / self._tau, dim=0)
+        s = alpha * len(self._keys)
+        scaled = [s[i] * parts[k] for i, k in enumerate(self._keys)]
+        return torch.cat(scaled, dim=1)
+
+
+class _LTAllMLP(nn.Module):
+    """Paper Eq 4-13: backbone (D->1024->512, LayerNorm, ReLU, Dropout 0.2)
+    + 2-layer prediction head (512->256->1). Deterministic mean head only
+    (the paper's primary reported greedy-acquisition configuration uses
+    L_MSE with a deterministic head, not MVE) -- see Eq 18 vs. Eq 19-20.
+    """
+
+    def __init__(self, keys: list, dims: dict, dropout: float = 0.2, tau: float = 1.0):
+        super().__init__()
+        self.fusion = _SourceWeightedFusion(keys, tau=tau)
+        D = sum(dims[k] for k in keys)
+        self.ln_in = nn.LayerNorm(D)
+        self.w1 = nn.Linear(D, 1024)
+        self.ln1 = nn.LayerNorm(1024)
+        self.w2 = nn.Linear(1024, 512)
+        self.ln2 = nn.LayerNorm(512)
+        self.drop = nn.Dropout(dropout)
+        self.wh = nn.Linear(512, 256)
+        self.wo = nn.Linear(256, 1)
+
+    def forward(self, parts: dict) -> torch.Tensor:
+        z = self.fusion(parts)
+        h1 = self.drop(self.ln1(F.relu(self.w1(self.ln_in(z)))))
+        h2 = self.drop(self.ln2(F.relu(self.w2(h1))))
+        out = self.wo(self.drop(F.relu(self.wh(h2))))
+        return out.squeeze(-1)
+
+
+class LTAllSurrogate:
+    """Paper's primary reported configuration: source-weighted concatenation
+    fusion + a shared MLP, trained jointly on all backbones at once (not
+    per-backbone), MSE on per-round-standardized targets (Eq 14-18), fresh
+    reinitialization every round (paper: "ensemble members are retrained
+    independently at every round" -- no warm-start), AdamW lr=5e-4,
+    weight_decay=1e-5, batch=8192, 200 epochs, grad-norm clip 1.0.
+
+    M independently-initialized members are trained per round (Eq 24:
+    mean-based greedy acquisition explicitly averages predictions across M
+    members, not a single model -- the paper's phrase "ensemble members are
+    retrained independently at every round" describes this, not only the
+    optional MVE/uncertainty-aware variant). predict() returns the M-member
+    mean as mu (Eq 24) and the ensemble disagreement as sigma (Eq 25's
+    std, i.e. before the +MVE term in Eq 27 -- no MVE head here, matching
+    the paper's primary deterministic-MSE configuration). M's value is NOT
+    given a specific number in the paper text available here; M=5 is
+    assumed (matching the paper's separately-stated "each complete
+    experiment was independently repeated five times", a different kind of
+    repetition, but the closest number given -- flagged as an assumption,
+    not a confirmed match).
+
+    Parameters
+    ----------
+    dims : dict {backbone_name: embedding_dim}
+    """
+
+    def __init__(
+        self,
+        dims: dict,
+        lr: float = 5e-4,
+        weight_decay: float = 1e-5,
+        dropout: float = 0.2,
+        epochs: int = 200,
+        batch: int = 8192,
+        tau: float = 1.0,
+        M: int = 5,
+    ):
+        self._dims = dims
+        self._keys = list(dims.keys())
+        self._lr = lr
+        self._weight_decay = weight_decay
+        self._dropout = dropout
+        self._epochs = epochs
+        self._batch = batch
+        self._tau = tau
+        self._M = M
+        self._models = []
+        self._ym = self._ys = None
+
+    def _split(self, X: np.ndarray) -> dict:
+        cuts = np.cumsum([self._dims[k] for k in self._keys])
+        splits = np.split(X, cuts[:-1], axis=1)
+        return {k: s for k, s in zip(self._keys, splits)}
+
+    def _train_one(self, parts_t: dict, yt: torch.Tensor, n: int, epochs: int, batch: int) -> nn.Module:
+        # Fresh model every call -- see class docstring; deliberately NOT
+        # warm-started from a previous round's or a previous member's weights.
+        model = _LTAllMLP(self._keys, self._dims, dropout=self._dropout, tau=self._tau).to(DEVICE)
+        opt = torch.optim.AdamW(model.parameters(), lr=self._lr, weight_decay=self._weight_decay)
+        use_amp = DEVICE.type == "cuda"
+        scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
+
+        model.train()
+        for _ in range(epochs):
+            perm = torch.randperm(n, device=DEVICE)
+            for start in range(0, n, batch):
+                idx = perm[start:start + batch]
+                xb = {k: v[idx] for k, v in parts_t.items()}
+                yb = yt[idx]
+                opt.zero_grad()
+                with torch.autocast(device_type=DEVICE.type, dtype=torch.bfloat16 if (use_amp and torch.cuda.is_bf16_supported()) else torch.float16, enabled=use_amp):
+                    pred = model(xb)
+                    loss = F.mse_loss(pred, yb)
+                scaler.scale(loss).backward()
+                scaler.unscale_(opt)
+                nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                scaler.step(opt)
+                scaler.update()
+        return model
+
+    def fit(self, X: np.ndarray, y: np.ndarray, epochs: int = None, batch: int = None):
+        epochs = self._epochs if epochs is None else epochs
+        batch = self._batch if batch is None else batch
+
+        self._ym = float(y.mean())
+        self._ys = float(y.std()) + 1e-8
+        y_norm = (y - self._ym) / self._ys
+
+        parts = X if isinstance(X, dict) else self._split(X)
+        n = y_norm.shape[0]
+        parts_t = {k: torch.tensor(v, dtype=torch.float32, device=DEVICE) for k, v in parts.items()}
+        yt = torch.tensor(y_norm, dtype=torch.float32, device=DEVICE)
+
+        t0 = time.perf_counter()
+        self._models = [self._train_one(parts_t, yt, n, epochs, batch) for _ in range(self._M)]
+        print(f"  [LTAll] trained {self._M} members x {epochs} epochs on {n:,} molecules "
+              f"in {time.perf_counter() - t0:.1f}s", flush=True)
+
+    def predict(self, X: np.ndarray, batch: int = 4096) -> tuple[np.ndarray, np.ndarray]:
+        parts = X if isinstance(X, dict) else self._split(X)
+        n = next(iter(parts.values())).shape[0]
+        use_amp = DEVICE.type == "cuda"
+
+        member_mus = []
+        with torch.no_grad():
+            for model in self._models:
+                model.eval()
+                mu_chunks = []
+                for start in range(0, n, batch):
+                    end = min(start + batch, n)
+                    xb = {k: torch.tensor(v[start:end], dtype=torch.float32, device=DEVICE) for k, v in parts.items()}
+                    with torch.autocast(device_type=DEVICE.type, dtype=torch.bfloat16 if (use_amp and torch.cuda.is_bf16_supported()) else torch.float16, enabled=use_amp):
+                        pred = model(xb)
+                    mu_chunks.append(pred.float().cpu().numpy())
+                member_mus.append(np.concatenate(mu_chunks))
+
+        member_mus = np.stack(member_mus, axis=0)  # (M, N), standardized scale
+        mu_n = member_mus.mean(axis=0)              # Eq 24
+        sig_n = member_mus.std(axis=0)               # Eq 25 (sqrt of sigma_ens^2), no MVE term
+        return mu_n * self._ys + self._ym, sig_n * self._ys

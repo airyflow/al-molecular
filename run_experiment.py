@@ -62,6 +62,20 @@ DATASETS = {
         "oracle": DATA_DIR / "EnamineHTS_scores.csv.gz",
         "embed_dir": EMBED_DIR / "EnamineHTS",
     },
+    "ENHITS": {
+        # Enamine HTS re-embedded by Yang's sharded pipeline
+        # (EnamineHITS_large_embedding_shards): the 2,104,318 *scored*
+        # molecules only, row-aligned to data/EnamineHTS_scores.csv.gz by
+        # construction. 5 backbones stitched from per-shard .npy via
+        # stitch_enhits_large_shards.py -- dims here differ from the
+        # results/embed/EnamineHTS set (grover=3400, unimol2=768, ...).
+        # Bare (N, D) .npy per backbone + a plain smiles txt, so
+        # load_embeddings() recovers row-order SMILES from smiles_source
+        # (= "library" below), same fallback path AmpC uses.
+        "library": DATA_DIR / "EnamineHTS_scores.csv.gz",
+        "oracle": DATA_DIR / "EnamineHTS_scores.csv.gz",
+        "embed_dir": Path("/N/project/SingleCell_Image/mengjing/enhits_large/embed"),
+    },
     "AmpC": {
         "library": AMPC_ROOT / "ampc_smiles.txt",
         "oracle": AMPC_ROOT / "ampc_scores.csv.gz",

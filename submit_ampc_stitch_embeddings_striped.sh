@@ -50,13 +50,20 @@
 
 set -euo pipefail
 
-BACKBONE="${1:?Usage: sbatch submit_ampc_stitch_embeddings_striped.sh <grover|molformer|unimol>}"
+BACKBONE="${1:?Usage: sbatch submit_ampc_stitch_embeddings_striped.sh <grover|molformer|unimol|smited|mhgged|unimol2> [NUM_CHUNKS]}"
 
+# grover/molformer/unimol were extracted at fixed chunk counts (hardcoded
+# below). smited/mhgged/unimol2 take NUM_CHUNKS as $2 -- it MUST equal the
+# value passed to their extract array job, or _chunk_bounds() will not line
+# up and the stitch will error on a row-count mismatch.
 case "$BACKBONE" in
     grover)    DIM=1600; NUM_CHUNKS=150 ;;
     molformer) DIM=768;  NUM_CHUNKS=50  ;;
     unimol)    DIM=512;  NUM_CHUNKS=70  ;;
-    *) echo "Unknown backbone '$BACKBONE' -- expected grover, molformer, or unimol" >&2; exit 1 ;;
+    smited)    DIM=768;  NUM_CHUNKS="${2:?smited needs NUM_CHUNKS as \$2 (same value as the extract job)}" ;;
+    mhgged)    DIM=1024; NUM_CHUNKS="${2:?mhgged needs NUM_CHUNKS as \$2 (same value as the extract job)}" ;;
+    unimol2)   DIM=1536; NUM_CHUNKS="${2:?unimol2 needs NUM_CHUNKS as \$2 (same value as the extract job)}" ;;
+    *) echo "Unknown backbone '$BACKBONE'" >&2; exit 1 ;;
 esac
 
 source /N/slate/mengjing/miniconda3/etc/profile.d/conda.sh

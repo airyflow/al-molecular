@@ -66,7 +66,7 @@ conda activate py310   # same environment as FusionAL
 
 # 1. Extract frozen backbone embeddings for the full pool (needed for
 #    method [2]'s starting point and method [3]'s three backbones)
-python extract_embeddings.py --backbone all
+python embed/extract_embeddings.py --backbone all
 # -> results/embed/EnamineHTS/{grover,unimol,molformer}_embeddings.npz
 #
 # GROVER specifically may need the sharded BigRed path instead (see below)
@@ -77,13 +77,13 @@ python extract_embeddings.py --backbone all
 # a GLIBC_2.29 mismatch). UniMol needs no extraction step at all: a
 # pre-existing, verified-aligned conformer cache already covers the full
 # pool (muben/data/files/EnamineHTS/processed/unimol-unimol/train.pt,
-# 21.6GB) -- extract_embeddings.py --backbone unimol will pick it up
+# 21.6GB) -- embed/extract_embeddings.py --backbone unimol will pick it up
 # automatically. MoLFormer needs no sharding either (~8 min for the full
 # pool, measured directly).
 #
 # Sharded GROVER path, if the single-process run is too slow/memory-hungry:
-#   sbatch --array=0-49 submit_grover_extraction.sh 50 2141500
-#   python concat_grover_chunks.py --chunks-dir results/embed/EnamineHTS/_grover_chunks \
+#   sbatch --array=0-49 slurm/embed/enamine/submit_grover_extraction.sh 50 2141500
+#   python embed/stitch/concat_grover_chunks.py --chunks-dir results/embed/EnamineHTS/_grover_chunks \
 #       --num-chunks 50 --total-count 2141500 --out-path results/embed/EnamineHTS/grover_embeddings.npz
 
 # 2. Smoke-test on a small subsample before committing GPU time to the
@@ -91,7 +91,7 @@ python extract_embeddings.py --backbone all
 
 # 3. Run everything (3 methods x 2 acquisitions x 3 batch-size fractions
 #    = 18 full AL runs against the 2.1M pool) and generate both figures
-./run_all_configs.sh
+./slurm/al_runs/enamine/run_all_configs.sh
 ```
 
 Each run writes to `runs/<method>_<acq>_frac<fraction>/`:
@@ -104,7 +104,7 @@ fraction) x 3-trace (one per method) figure matching Figure 4's layout.
 ## Smoke test (do this before the real run)
 
 ```bash
-python extract_embeddings.py --backbone all --limit 3000
+python embed/extract_embeddings.py --backbone all --limit 3000
 python run_experiment.py --mode molpal --model mpn --acq greedy \
     --init-size 100 --batch-size 100 --n-rounds 2 --topk 20 --pool-limit 3000 \
     --run-dir runs/_smoke_mpn
@@ -125,10 +125,12 @@ al-molecular/
 ├── molpal/                              # vendored MolPAL package (models, acquirer, featurizer, ...)
 ├── surrogates.py                        # ALSU surrogate classes, incl. EnsembleFusionSurrogate
 ├── backbone_finetuner.py                # online backbone fine-tuning (GROVER/UniMol/MoLFormer)
-├── extract_embeddings.py                # one-time frozen-embedding extraction for the pool
+├── embed/extract_embeddings.py          # one-time frozen-embedding extraction for the pool
 ├── run_experiment.py                    # single-config AL driver (top-1000 metric, EnamineHTS-only)
-├── run_all_configs.sh                   # launches all 18 configs + plotting
 ├── plot_figures.py                      # produces the two comparison figures
+├── slurm/                               # all SLURM submit scripts, grouped by stage then dataset
+│   ├── embed/{enamine,ampc}/            # embedding extraction + stitch jobs
+│   └── al_runs/{enamine,ampc}/          # active-learning driver submissions (incl. run_all_configs.sh)
 ├── models -> FusionAL/models            # symlink: shared pretrained backbone checkpoints
 ├── muben  -> FusionAL/muben             # symlink: shared MUBen backbone library
 ├── results/embed/EnamineHTS/            # extracted frozen embeddings (.npz)

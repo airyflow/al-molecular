@@ -131,7 +131,7 @@ def main():
         if done_path.exists():
             # Already completed this round (e.g. a prior attempt got this
             # far before being killed/timed out on a later round -- see
-            # submit_ampc_al_predict_workers_h100single.sh's retry wrapper).
+            # slurm/al_runs/ampc/submit_ampc_al_predict_workers_h100single.sh's retry wrapper).
             # Skip straight to the next round instead of redoing real,
             # already-correct prediction work.
             print(f"[worker {args.shard_id}] round {r}/{args.n_rounds} already done (from a prior attempt) -- skipping", flush=True)

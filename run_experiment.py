@@ -23,7 +23,7 @@ Three methods are compared here (see README.md for the full rationale):
       real (non-degenerate) uncertainty signal instead.
 
 Each of these is run under both --acq greedy and --acq ucb, at all three
-batch-size fractions -- orchestrated by run_all_configs.sh, not this file
+batch-size fractions -- orchestrated by slurm/al_runs/enamine/run_all_configs.sh, not this file
 directly (this file runs exactly one config per invocation).
 """
 
@@ -81,7 +81,7 @@ DATASETS = {
         "oracle": AMPC_ROOT / "ampc_scores.csv.gz",
         # Lustre-striped (28-way, vs. the original's stripe count 1) copy of
         # the same data -- re-stitched from the same per-chunk files via
-        # submit_ampc_stitch_embeddings_striped.sh, spot-verified bit-identical
+        # slurm/embed/ampc/submit_ampc_stitch_embeddings_striped.sh, spot-verified bit-identical
         # to the original embeddings/ (shape, sample rows, NaN counts all
         # matched, 2026-08-15). Switched to fix scattered fancy-indexed reads
         # (AL training-set fetches, shard 7's per-chunk correction reads)
@@ -328,7 +328,7 @@ class MVEExplorer:
 
         if resume_scores is not None:
             # Recovering from a crashed run (e.g. the orchestrator OOM-killed
-            # partway into a later round -- see submit_ampc_fusion_runs_h100single.sh)
+            # partway into a later round -- see slurm/al_runs/ampc/submit_ampc_fusion_runs_h100single.sh)
             # using the iter_N/scores.pkl checkpoint _checkpoint() already
             # writes every round. Reconstruct labeled_idx via the pool's
             # smi2idx (already built by build_mve above). AmpC has some
@@ -887,7 +887,7 @@ def parse_args():
                           help="Delegate per-round pool prediction to a persistent pool of single-GPU "
                                "workers (predict_pool_shard_worker.py) instead of predicting in-process. "
                                "Workers must already be running against the same --coord-dir before this "
-                               "starts (see submit_ampc_al_predict_workers_h100single.sh).")
+                               "starts (see slurm/al_runs/ampc/submit_ampc_al_predict_workers_h100single.sh).")
     mve_grp.add_argument("--num-shards", type=int, default=None, help="Required with --parallel-predict")
     mve_grp.add_argument("--coord-dir", default=None,
                           help="Marker-file coordination directory shared with the workers. "

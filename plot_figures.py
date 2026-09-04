@@ -12,7 +12,7 @@ molecules explored (same k=1000 as the original paper -- NOT top-1%, which
 would be a different, larger k at this pool size).
 
 Reads runs/<run_dir>/history.json written by run_experiment.py. Expects
-run directories named by run_all_configs.sh's convention:
+run directories named by slurm/al_runs/enamine/run_all_configs.sh's convention:
   {method}_{acq}_frac{frac}/history.json
 """
 

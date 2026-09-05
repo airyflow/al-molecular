@@ -59,6 +59,38 @@ fine-tune target via `surrogate_type.replace("ft_", "")`, which turns
 back to `FusionAL/molpal/models/__init__.py` if that repo's `ft_molformer_single`
 path is ever used there.
 
+## Configuration
+
+Environment-specific values (conda install location, SLURM account, and
+data that lives outside the repo -- `AMPC_ROOT`, `ENHITS_LARGE_EMBED_DIR`)
+are read from `config.env` at the repo root, not hardcoded. Copy the
+template and edit it once per environment:
+```bash
+cp config.env.example config.env
+# edit config.env: replace the user_name placeholders with your real paths
+```
+Every `slurm/*.sh` script sources this automatically; `run_experiment.py`
+reads it directly too, so it works the same way whether you run through
+SLURM or invoke it standalone. Leaving `config.env` unedited or absent
+falls back to this repo's original values -- nothing is required to keep
+working exactly as before. `#SBATCH` partition/log-path directives are
+*not* covered by this file (see the comment in `config.env.example` for
+why) -- edit those lines directly, or override at submit time with
+`sbatch -p <partition> -o <path> script.sh`.
+
+To confirm `config.env` is actually being picked up, without running
+anything heavy:
+```bash
+python3 -c "
+import run_experiment as exp
+print('AMPC_ROOT:', exp.AMPC_ROOT)
+print('RUNS_DIR:', exp.RUNS_DIR)
+print('ENHITS embed_dir:', exp.DATASETS['ENHITS']['embed_dir'])
+"
+```
+The printed paths should match whatever you put in `config.env`, not the
+committed defaults.
+
 ## Setup
 
 ```bash
@@ -115,6 +147,19 @@ python run_experiment.py --mode mve --surrogate ensemble --backbones grover molf
     --acq ucb --init-size 100 --batch-size 100 --n-rounds 2 --topk 20 --pool-limit 3000 \
     --run-dir runs/_smoke_fusion
 ```
+
+To exercise the newer ENHITS/LT-All path end-to-end (config resolution +
+dataset loading + the fused 5-backbone surrogate), on a tiny slice so it
+finishes in under a minute regardless of GPU availability:
+```bash
+python run_experiment.py --dataset ENHITS --mode mve --surrogate ltall --acq greedy \
+    --backbones molformer grover mhgged smited unimol2 \
+    --init-size 50 --batch-size 50 --n-rounds 2 --topk 20 --pool-limit 500 \
+    --run-dir runs/_smoke_config_test
+```
+A clean 2-round history table printed at the end means both `config.env`
+and the LT-All pipeline are working together, not just the path
+resolution in isolation.
 
 ## Repository layout
 

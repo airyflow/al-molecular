@@ -128,8 +128,8 @@ python embed/extract_embeddings.py --backbone all
 
 Each run writes to `runs/<method>_<acq>_frac<fraction>/`:
 `history.json` (per-round metrics), `all_explored_final.csv`, and
-per-round checkpoints. `plot_figures.py` reads `history.json` from all 18
-directories and writes `figures/enamine_hts_greedy.{pdf,png}` and
+per-round checkpoints. `plots/plot_figures.py` reads `history.json` from
+all 18 directories and writes `figures/enamine_hts_greedy.{pdf,png}` and
 `figures/enamine_hts_ucb.{pdf,png}`, each a 3-panel (one per batch
 fraction) x 3-trace (one per method) figure matching Figure 4's layout.
 
@@ -172,7 +172,10 @@ al-molecular/
 ├── backbone_finetuner.py                # online backbone fine-tuning (GROVER/UniMol/MoLFormer)
 ├── embed/extract_embeddings.py          # one-time frozen-embedding extraction for the pool
 ├── run_experiment.py                    # single-config AL driver (top-1000 metric, EnamineHTS-only)
-├── plot_figures.py                      # produces the two comparison figures
+├── plots/                               # figure-generation scripts (read runs/, write figures/)
+│   ├── plot_figures.py                  # the two comparison figures (greedy + UCB)
+│   ├── plot_figure4.py                  # literal reproduction of the paper's own Figure 4
+│   └── plot_figure4_extended.py         # Figure 4 + our 4 follow-up methods, one combined figure
 ├── slurm/                               # all SLURM submit scripts, grouped by stage then dataset
 │   ├── embed/{enamine,ampc}/            # embedding extraction + stitch jobs
 │   └── al_runs/{enamine,ampc}/          # active-learning driver submissions (incl. run_all_configs.sh)

@@ -36,7 +36,7 @@
 #   sbatch --array=0-5 slurm/al_runs/enamine/submit_figure4_runs.sh
 #
 # After all 6 (plus the already-done mpn_greedy_frac* from the other sweep):
-#   python plot_figure4.py
+#   python plots/plot_figure4.py
 
 set -euo pipefail
 

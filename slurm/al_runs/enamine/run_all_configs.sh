@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Launches all 18 configs: 3 methods x 2 acquisitions x 3 batch-size fractions.
-# Run directories are named {method}_{acq}_frac{frac} to match plot_figures.py.
+# Run directories are named {method}_{acq}_frac{frac} to match plots/plot_figures.py.
 #
 # Pool size used for fraction->count conversion: 2,104,319 (the scored subset
 # of EnamineHTS.csv.gz, i.e. len(load_oracle()) -- verify this matches your
@@ -47,4 +47,4 @@ for frac in "${FRACS[@]}"; do
 done
 
 echo "All 18 runs complete. Generating figures..."
-python plot_figures.py
+python plots/plot_figures.py

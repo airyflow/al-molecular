@@ -21,7 +21,7 @@ import matplotlib
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt, ticker
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent  # repo root (this file lives in plots/)
 RUNS_DIR = ROOT / "runs"
 FIG_DIR = ROOT / "figures"
 FIG_DIR.mkdir(exist_ok=True)

@@ -31,7 +31,7 @@
 # failure.
 #
 # Uses BOTH fixes applied to embed/compute/compute_unimol_embeddings_chunk.py this
-# session: (1) conformer-duplication fix (each LMDB shard stores 2
+# session: (1) conformer-duplication fix (each LMDB chunk file stores 2
 # conformers/molecule -- 1 real + 1 always-appended 2D fallback -- only
 # the first is now kept, previously every chunk silently shipped 2x rows)
 # and (2) a fixed torch.manual_seed() before model construction (the
@@ -39,7 +39,7 @@
 # embedding projection, at PyTorch's random init -- unseeded, every
 # separate chunk process got its own incomparable random projection).
 #
-# --num-chunks MUST stay 70 -- must match Stage 1's shard count exactly.
+# --num-chunks MUST stay 70 -- must match Stage 1's chunk count exactly.
 # Each array task writes its own independent chunk file (skip-if-exists
 # built into the script itself -- already-completed chunks from the
 # earlier local run, e.g. 0/1/35/36, are detected and skipped
@@ -81,7 +81,7 @@ export OPENBLAS_NUM_THREADS=4
 python3 embed/compute/compute_unimol_embeddings_chunk.py \
     --smiles-file /N/project/SingleCell_Image/mengjing/ampc_99.5M/ampc_smiles.txt \
     --total-count 99459561 \
-    --shards-dir /N/project/SingleCell_Image/mengjing/ampc_99.5M/_unimol_conformers/_shards \
+    --conformer-chunks-dir /N/project/SingleCell_Image/mengjing/ampc_99.5M/_unimol_conformers/_chunks \
     --chunk-id "$TASK_ID" \
     --num-chunks 70 \
     --chunks-dir /N/project/SingleCell_Image/mengjing/ampc_99.5M/_unimol_chunks \

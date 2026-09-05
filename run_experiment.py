@@ -38,7 +38,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from generate_unimol_conformers_chunk import _chunk_bounds
+from smiles_chunking import _chunk_bounds
 
 ROOT = Path(__file__).resolve().parent
 

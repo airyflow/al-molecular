@@ -60,7 +60,7 @@ import numpy as np
 import torch
 
 import run_experiment as exp
-from generate_unimol_conformers_chunk import _chunk_bounds
+from smiles_chunking import _chunk_bounds
 
 # Test-only hook: lets a verification harness register a synthetic dataset
 # (e.g. a tiny toy embed_dir) into a fresh subprocess's copy of

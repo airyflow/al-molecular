@@ -12,16 +12,16 @@
 #SBATCH -A r00939
 
 # Stage 2 of the AmpC Uni-Mol pipeline: compute embeddings from the
-# conformer shards Stage 1 (slurm/embed/ampc/submit_ampc_unimol_conformers.sh) already
+# conformer chunk files Stage 1 (slurm/embed/ampc/submit_ampc_unimol_conformers.sh) already
 # produced. CPU-only here (matches "hard to get GPU" -- BigRed200's GPU
 # partition is far more contended than its general/CPU partition;
 # embed/compute/compute_unimol_embeddings_chunk.py already has a CPU fallback path).
 # No real CPU throughput number is in hand yet for this specific
-# model/hardware combination -- check the first completed shard's log
+# model/hardware combination -- check the first completed chunk's log
 # line (prints ms/molecule) before trusting the --time budget above.
 #
 # --num-chunks MUST match Stage 1's (70) -- chunk boundaries have to line
-# up exactly with the LMDB shard files on disk, or the alignment check in
+# up exactly with the LMDB chunk files on disk, or the alignment check in
 # embed/compute/compute_unimol_embeddings_chunk.py will correctly refuse to produce
 # embeddings rather than silently misalign SMILES with the wrong
 # conformers.
@@ -32,7 +32,7 @@
 # slurm/embed/ampc/submit_ampc_stitch_embeddings.sh) to produce the final shared .npy that
 # EmbeddingFeaturizer.load() expects.
 #
-# Usage (only after all of Stage 1's shards exist):
+# Usage (only after all of Stage 1's chunk files exist):
 #   sbatch --array=0-69 slurm/embed/ampc/submit_ampc_unimol_embed.sh
 
 set -euo pipefail
@@ -61,7 +61,7 @@ AMPC_ROOT="/N/project/SingleCell_Image/mengjing/ampc_99.5M"
 
 srun --cpu-bind=none python embed/compute/compute_unimol_embeddings_chunk.py \
     --smiles-file "$AMPC_ROOT/ampc_smiles.txt" --total-count 99459561 \
-    --shards-dir "$AMPC_ROOT/_unimol_conformers/_shards" \
+    --conformer-chunks-dir "$AMPC_ROOT/_unimol_conformers/_chunks" \
     --chunk-id "$TASK_ID" --num-chunks 70 \
     --chunks-dir "$AMPC_ROOT/_unimol_chunks" \
     --num-workers 4

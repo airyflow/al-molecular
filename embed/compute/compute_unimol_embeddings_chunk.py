@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Stage 2 of the split Uni-Mol pipeline, chunked: compute embeddings
-directly from one conformer shard produced by generate_unimol_conformers_chunk.py.
+directly from one conformer chunk file produced by generate_unimol_conformers_chunk.py.
 
 Ported from al-eval-framework's src/representations/compute_unimol_embeddings_chunk.py,
 adapted for molpal-fusion-hts: uses a self-contained config class (not
@@ -9,11 +9,11 @@ DATASET = "EnamineHTS" at module level and would silently point
 unimol_feature_dir at the wrong dataset for AmpC), and writes into a shared
 memmap (see shared_embedding_store.py) instead of a per-chunk .npz.
 
-No conformer-shard merge is needed because embedding computation only
+No conformer-chunk merge is needed because embedding computation only
 needs, for each molecule, its SMILES plus its conformer (atoms/coordinates)
 in matching order -- both are already available per-chunk: read_smiles_chunk()
 gives the same SMILES slice generate_unimol_conformers_chunk.py used for
-this chunk-id, and that chunk's shard (chunk_{id:05d}.lmdb) holds exactly
+this chunk-id, and that chunk's file (chunk_{id:05d}.lmdb) holds exactly
 those molecules' conformers in the same order (global LMDB keys sort
 correctly within a contiguous chunk range).
 
@@ -29,7 +29,7 @@ Usage
 -----
 python compute_unimol_embeddings_chunk.py \\
     --smiles-file /path/to/ampc_smiles.txt --total-count 99459561 \\
-    --shards-dir /path/to/_unimol_conformers/_shards \\
+    --conformer-chunks-dir /path/to/_unimol_conformers/_chunks \\
     --chunk-id 0 --num-chunks 70 \\
     --chunks-dir /path/to/_unimol_embed_chunks
 """
@@ -62,11 +62,11 @@ _muben_root = ROOT / "muben"
 if str(_muben_root) not in sys.path:
     sys.path.insert(0, str(_muben_root))
 
-# generate_unimol_conformers_chunk.py / shared_embedding_store.py live at the
+# smiles_chunking.py / shared_embedding_store.py live at the
 # repo root, not next to this file -- put ROOT on sys.path so these bare
 # imports still resolve regardless of where this script itself was invoked from.
 sys.path.insert(0, str(ROOT))
-from generate_unimol_conformers_chunk import _chunk_bounds, count_lines, read_smiles_chunk
+from smiles_chunking import _chunk_bounds, count_lines, read_smiles_chunk
 from shared_embedding_store import chunk_file_path, write_chunk_file
 
 if torch.cuda.is_available():
@@ -124,7 +124,7 @@ def _verify_alignment(chunk_smiles: list, atoms: list, sample_size: int = 20, se
     different global-index boundaries, potentially preserving the count
     while pairing every molecule with the wrong conformer. Re-derive each
     sampled molecule's expected all-hydrogen atom count from its own
-    SMILES and compare against what the shard actually stored at that
+    SMILES and compare against what the chunk file actually stored at that
     position -- a real content check, not just a count."""
     from rdkit import Chem
     from rdkit.Chem import AllChem
@@ -144,19 +144,19 @@ def _verify_alignment(chunk_smiles: list, atoms: list, sample_size: int = 20, se
             mismatches.append((i, smi, expected_n_atoms, actual_n_atoms))
 
     if mismatches:
-        detail = "; ".join(f"index {i}: {smi!r} expected {exp} atoms, shard has {act}" for i, smi, exp, act in mismatches[:5])
+        detail = "; ".join(f"index {i}: {smi!r} expected {exp} atoms, chunk file has {act}" for i, smi, exp, act in mismatches[:5])
         raise RuntimeError(
             f"Conformer/SMILES alignment check FAILED for {len(mismatches)}/{len(idxs)} sampled molecules "
             f"({detail}) -- do not trust these embeddings. Almost certainly a --num-chunks/--total-count "
-            f"mismatch between the generate_unimol_conformers_chunk.py run that produced this shard and "
+            f"mismatch between the generate_unimol_conformers_chunk.py run that produced this chunk file and "
             f"this invocation."
         )
 
 
-def load_chunk_dataset(chunk_smiles: list, shard_path: Path, config):
-    """Builds a DatasetUniMol directly from one conformer shard, bypassing
+def load_chunk_dataset(chunk_smiles: list, chunk_path: Path, config):
+    """Builds a DatasetUniMol directly from one conformer chunk file, bypassing
     DatasetUniMol.prepare()'s directory/partition-based file lookup (which
-    expects one merged {partition}.lmdb, not many per-chunk shards)."""
+    expects one merged {partition}.lmdb, not many per-chunk files)."""
     from muben.dataset import DatasetUniMol
     from muben.dataset.dataset_unimol.dictionary import DictionaryUniMol
     from muben.dataset.dataset_unimol.process import ProcessingPipeline
@@ -184,11 +184,11 @@ def load_chunk_dataset(chunk_smiles: list, shard_path: Path, config):
     dataset._lbs = np.zeros((n, 1), dtype=np.float32)
     dataset._masks = np.ones((n, 1), dtype=np.float32)
     dataset._ori_ids = None
-    dataset._atoms, coordinates = load_lmdb(str(shard_path), ["atoms", "coordinates"])
+    dataset._atoms, coordinates = load_lmdb(str(chunk_path), ["atoms", "coordinates"])
     # generate_unimol_conformers_chunk.py's smiles_to_coords(n_conformer=1) ALWAYS
     # appends a 2D-fallback conformer in ADDITION to the 1 requested 3D conformer
     # (see muben.utils.chem.smiles_to_coords: "coordinates.append(smiles_to_2d_coords(...))"
-    # runs unconditionally, not just on failure) -- so each shard record actually
+    # runs unconditionally, not just on failure) -- so each chunk file's record actually
     # stores 2 conformers, not 1. process_inference() correctly (by design) loops
     # over every stored conformer, so leaving this alone silently doubles every
     # embedding row (verified directly: chunk 0 shipped 2,841,702 rows for
@@ -197,8 +197,8 @@ def load_chunk_dataset(chunk_smiles: list, shard_path: Path, config):
     # always the primary one Stage 1 intended, index 1 is the always-appended extra.
     dataset._coordinates = [c[:1] for c in coordinates]
     assert len(dataset._atoms) == n, (
-        f"Shard {shard_path} has {len(dataset._atoms)} records but the chunk has {n} SMILES -- "
-        f"mismatched chunk boundaries (wrong --num-chunks/--total-count?) or an incomplete shard."
+        f"Chunk file {chunk_path} has {len(dataset._atoms)} records but the chunk has {n} SMILES -- "
+        f"mismatched chunk boundaries (wrong --num-chunks/--total-count?) or an incomplete chunk file."
     )
     _verify_alignment(chunk_smiles, dataset._atoms)
 
@@ -206,14 +206,14 @@ def load_chunk_dataset(chunk_smiles: list, shard_path: Path, config):
 
 
 def compute_embeddings_for_chunk(
-    chunk_smiles: list, shard_path: Path, checkpoint_path: Path,
+    chunk_smiles: list, chunk_path: Path, checkpoint_path: Path,
     batch_size: int = 256, num_workers: int = 4,
 ) -> np.ndarray:
     from muben.dataset.dataset_unimol import CollatorUniMol
     from muben.model.unimol.unimol import UniMol
 
     config = _UniMolConfig(checkpoint_path=checkpoint_path)
-    dataset, unimol_dict = load_chunk_dataset(chunk_smiles, shard_path, config)
+    dataset, unimol_dict = load_chunk_dataset(chunk_smiles, chunk_path, config)
 
     # UniMol.__init__ builds `hidden_layer` (the final Linear that produces
     # the returned embedding, applied to encoder_rep[:, 0, :]) AFTER
@@ -283,7 +283,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--smiles-file", required=True)
     parser.add_argument("--total-count", type=int, default=None, help="Skip an O(N) line-count scan; strongly recommended at scale")
-    parser.add_argument("--shards-dir", required=True, help="Directory containing chunk_XXXXX.lmdb shards from generate_unimol_conformers_chunk.py")
+    parser.add_argument("--conformer-chunks-dir", required=True, help="Directory containing chunk_XXXXX.lmdb files from generate_unimol_conformers_chunk.py")
     parser.add_argument("--chunk-id", type=int, required=True)
     parser.add_argument("--num-chunks", type=int, required=True)
     parser.add_argument("--chunks-dir", required=True, help="Directory to write this chunk's independent unimol_embeddings_chunk_NNNNN.npy into")
@@ -302,9 +302,9 @@ def main():
 
     chunk_smiles = read_smiles_chunk(args.smiles_file, start, end)
 
-    shard_path = Path(args.shards_dir) / f"chunk_{args.chunk_id:05d}.lmdb"
-    if not shard_path.exists():
-        raise SystemExit(f"Shard not found: {shard_path}")
+    chunk_path = Path(args.conformer_chunks_dir) / f"chunk_{args.chunk_id:05d}.lmdb"
+    if not chunk_path.exists():
+        raise SystemExit(f"Conformer chunk file not found: {chunk_path}")
 
     checkpoint_path = Path(args.checkpoint) if args.checkpoint else MODEL_ZOO / "unimol" / "mol_pre_all_h_220816.pt"
 
@@ -312,7 +312,7 @@ def main():
 
     t0 = time.perf_counter()
     matrix = compute_embeddings_for_chunk(
-        chunk_smiles, shard_path, checkpoint_path,
+        chunk_smiles, chunk_path, checkpoint_path,
         batch_size=args.batch_size, num_workers=args.num_workers,
     )
     elapsed = time.perf_counter() - t0

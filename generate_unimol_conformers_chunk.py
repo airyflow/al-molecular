@@ -21,8 +21,8 @@ did this) doesn't scale to AmpC's 99.5M molecules -- conformer generation
 alone would dominate a single process for weeks.
 
 This script runs *only* conformer generation, over one chunk of the pool,
-writing results to an LMDB shard. No merge step is needed afterward:
-compute_unimol_embeddings_chunk.py reads directly from each chunk's shard
+writing results to an LMDB chunk file. No merge step is needed afterward:
+compute_unimol_embeddings_chunk.py reads directly from each chunk's file
 (same chunk boundaries, same chunk-id) -- see that script's docstring.
 
 Storage note (measured on real Enamine REAL molecules in al-eval-framework):
@@ -43,7 +43,7 @@ python generate_unimol_conformers_chunk.py \\
     --chunk-id 0 --num-chunks 70 --n-conformer 1
 
 # After all chunks finish (only needed if you want one consolidated file
-# instead of reading per-chunk shards directly -- compute_unimol_embeddings_chunk.py
+# instead of reading per-chunk files directly -- compute_unimol_embeddings_chunk.py
 # does NOT require this):
 python generate_unimol_conformers_chunk.py \\
     --out-dir /path/to/_unimol_conformers --num-chunks 70 --merge
@@ -51,7 +51,6 @@ python generate_unimol_conformers_chunk.py \\
 from __future__ import annotations
 
 import argparse
-import itertools
 import os
 import pickle
 import time
@@ -72,6 +71,8 @@ _muben_root = ROOT / "muben"
 if str(_muben_root) not in sys.path:
     sys.path.insert(0, str(_muben_root))
 
+from smiles_chunking import _chunk_bounds, count_lines, read_smiles_chunk
+
 _KEY_WIDTH = 13  # zero-padded decimal width; comfortably covers > 1.3B indices
 
 
@@ -83,30 +84,8 @@ def _global_index_key(idx: int) -> bytes:
     return f"{idx:0{_KEY_WIDTH}d}".encode()
 
 
-def _chunk_bounds(n: int, chunk_id: int, num_chunks: int) -> tuple[int, int]:
-    chunk_size = (n + num_chunks - 1) // num_chunks
-    start = chunk_id * chunk_size
-    end = min(start + chunk_size, n)
-    return start, end
-
-
-def count_lines(path: str) -> int:
-    with open(path, "rb") as f:
-        return sum(1 for _ in f)
-
-
-def read_smiles_chunk(path: str, start: int, end: int) -> list:
-    """Reads only lines [start, end) of a SMILES file. Uses islice over a
-    lazily-iterated file handle rather than loading the whole file into a
-    list first -- memory stays bounded to one chunk even for a billion-line
-    pool (the O(start) time to skip preceding lines is accepted here)."""
-    with open(path) as f:
-        lines = list(itertools.islice(f, start, end))
-    return [line.strip() for line in lines if line.strip()]
-
-
 def generate_conformers_for_chunk(
-    smiles: list, shard_path: Path, start: int, map_size_gb: float,
+    smiles: list, chunk_path: Path, start: int, map_size_gb: float,
     n_conformer: int = 1, num_workers: int = 4, timeout_s: int = 30,
     commit_every: int = 2000,
 ) -> int:
@@ -116,11 +95,11 @@ def generate_conformers_for_chunk(
     coordinates on a hang, since plain pool.imap has no per-item timeout
     and one bad molecule can block an entire chunk forever.
 
-    Writes results to the LMDB shard incrementally (every `commit_every`
+    Writes results to the LMDB chunk file incrementally (every `commit_every`
     molecules) instead of accumulating a chunk's full results in memory
     and writing once at the end -- bounds how much work a kill (SLURM
     walltime, preemption, crash) can lose. Also resumable: molecules whose
-    global index already has an entry in `shard_path` (e.g. from a prior
+    global index already has an entry in `chunk_path` (e.g. from a prior
     killed attempt) are skipped rather than regenerated.
     """
     from muben.utils.chem import smiles_to_coords, smiles_to_2d_coords
@@ -128,8 +107,8 @@ def generate_conformers_for_chunk(
     from rdkit.Chem import AllChem
     from tqdm.auto import tqdm
 
-    shard_path.parent.mkdir(parents=True, exist_ok=True)
-    env = lmdb.open(str(shard_path), subdir=False, map_size=int(map_size_gb * (1024 ** 3)))
+    chunk_path.parent.mkdir(parents=True, exist_ok=True)
+    env = lmdb.open(str(chunk_path), subdir=False, map_size=int(map_size_gb * (1024 ** 3)))
 
     with env.begin() as txn:
         done_keys = set(txn.cursor().iternext(values=False))
@@ -137,7 +116,7 @@ def generate_conformers_for_chunk(
     todo = [(i, smi) for i, smi in enumerate(smiles) if _global_index_key(start + i) not in done_keys]
     n_done_already = len(smiles) - len(todo)
     if n_done_already:
-        print(f"[resume] {n_done_already:,}/{len(smiles):,} molecules already present in {shard_path} -- skipping")
+        print(f"[resume] {n_done_already:,}/{len(smiles):,} molecules already present in {chunk_path} -- skipping")
 
     if not todo:
         env.close()
@@ -176,60 +155,60 @@ def generate_conformers_for_chunk(
     return len(todo)
 
 
-def merge_shards(shards_dir: Path, out_path: Path, expected_num_chunks: int, map_size_gb: float, allow_partial: bool) -> None:
-    """Commits one write transaction per shard (not one giant transaction
-    for the whole merge) and tracks completed shards in a sidecar
-    `.merge_progress` file, so a merge across many shards / several TB can
+def merge_chunks(chunks_dir: Path, out_path: Path, expected_num_chunks: int, map_size_gb: float, allow_partial: bool) -> None:
+    """Commits one write transaction per chunk file (not one giant transaction
+    for the whole merge) and tracks completed chunks in a sidecar
+    `.merge_progress` file, so a merge across many chunks / several TB can
     be killed and resumed without losing everything and restarting."""
-    shard_paths = sorted(shards_dir.glob("chunk_*.lmdb"))
-    if not allow_partial and len(shard_paths) != expected_num_chunks:
+    chunk_paths = sorted(chunks_dir.glob("chunk_*.lmdb"))
+    if not allow_partial and len(chunk_paths) != expected_num_chunks:
         raise SystemExit(
-            f"Expected {expected_num_chunks} shards in {shards_dir}, found {len(shard_paths)}. "
+            f"Expected {expected_num_chunks} chunk files in {chunks_dir}, found {len(chunk_paths)}. "
             f"Pass --allow-partial to merge an incomplete set anyway."
         )
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     progress_path = out_path.with_suffix(out_path.suffix + ".merge_progress")
-    done_shards = set()
+    done_chunks = set()
     if progress_path.exists():
-        done_shards = set(progress_path.read_text().splitlines())
-        print(f"[resume] {len(done_shards)}/{len(shard_paths)} shards already merged, skipping")
+        done_chunks = set(progress_path.read_text().splitlines())
+        print(f"[resume] {len(done_chunks)}/{len(chunk_paths)} chunks already merged, skipping")
 
     out_env = lmdb.open(str(out_path), subdir=False, map_size=int(map_size_gb * (1024 ** 3)))
 
     n_written = 0
     n_merged_now = 0
     with open(progress_path, "a") as progress_f:
-        for shard_path in shard_paths:
-            if shard_path.name in done_shards:
+        for chunk_path in chunk_paths:
+            if chunk_path.name in done_chunks:
                 continue
 
-            shard_env = lmdb.open(
-                str(shard_path), subdir=False, readonly=True, lock=False,
+            chunk_env = lmdb.open(
+                str(chunk_path), subdir=False, readonly=True, lock=False,
                 readahead=False, meminit=False, max_readers=256,
             )
             with out_env.begin(write=True) as out_txn:
-                with shard_env.begin() as txn:
+                with chunk_env.begin() as txn:
                     cursor = txn.cursor()
                     for key, value in cursor.iternext(keys=True, values=True):
                         out_txn.put(key, value)
                         n_written += 1
-            shard_env.close()
+            chunk_env.close()
 
-            progress_f.write(shard_path.name + "\n")
+            progress_f.write(chunk_path.name + "\n")
             progress_f.flush()
             n_merged_now += 1
 
     out_env.close()
 
-    print(f"[merge] {n_merged_now} shards merged this run ({len(shard_paths)} total) -> {n_written:,} new records -> {out_path}")
+    print(f"[merge] {n_merged_now} chunks merged this run ({len(chunk_paths)} total) -> {n_written:,} new records -> {out_path}")
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--smiles-file", required=True, help="Plain text file, one SMILES per line")
     parser.add_argument("--total-count", type=int, default=None, help="Total pool size, to skip an O(N) line-count scan (strongly recommended for large array jobs)")
-    parser.add_argument("--out-dir", required=True, help="Directory to hold _shards/chunk_NNNNN.lmdb (and, after --merge, train.lmdb)")
+    parser.add_argument("--out-dir", required=True, help="Directory to hold _chunks/chunk_NNNNN.lmdb (and, after --merge, train.lmdb)")
     parser.add_argument("--chunk-id", type=int, default=None, help="Required unless --merge")
     parser.add_argument("--num-chunks", type=int, required=True)
     parser.add_argument("--n-conformer", type=int, default=1, help="1 is recommended here (see module docstring) -- the muben default of 10 is for a different use case")
@@ -237,18 +216,18 @@ def main():
     parser.add_argument("--timeout-s", type=int, default=30)
     parser.add_argument("--commit-every", type=int, default=2000)
     parser.add_argument("--partition", default="train", help="Must match the partition compute_unimol_embeddings_chunk.py's model expects (always 'train' today)")
-    parser.add_argument("--map-size-gb", type=float, default=30.0, help="LMDB map_size for a single shard. At ~4.01KB/molecule (n_conformer=1, measured), a ~1.4M-molecule shard (70-way split of AmpC's 99.5M pool) needs ~5.6GB; 30GB leaves >5x headroom for larger-than-average molecules.")
-    parser.add_argument("--merge", action="store_true", help="Consolidate all chunk shards into one final cache instead of generating one (optional -- Stage 2 can read per-chunk shards directly)")
+    parser.add_argument("--map-size-gb", type=float, default=30.0, help="LMDB map_size for a single chunk file. At ~4.01KB/molecule (n_conformer=1, measured), a ~1.4M-molecule chunk (70-way split of AmpC's 99.5M pool) needs ~5.6GB; 30GB leaves >5x headroom for larger-than-average molecules.")
+    parser.add_argument("--merge", action="store_true", help="Consolidate all per-chunk files into one final cache instead of generating one (optional -- Stage 2 can read per-chunk files directly)")
     parser.add_argument("--merge-map-size-gb", type=float, default=500.0)
-    parser.add_argument("--allow-partial", action="store_true", help="Merge even if fewer than --num-chunks shards are present")
+    parser.add_argument("--allow-partial", action="store_true", help="Merge even if fewer than --num-chunks chunk files are present")
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir)
-    shards_dir = out_dir / "_shards"
+    chunks_dir = out_dir / "_chunks"
     final_path = out_dir / f"{args.partition}.lmdb"
 
     if args.merge:
-        merge_shards(shards_dir, final_path, args.num_chunks, args.merge_map_size_gb, args.allow_partial)
+        merge_chunks(chunks_dir, final_path, args.num_chunks, args.merge_map_size_gb, args.allow_partial)
         return
 
     if args.chunk_id is None:
@@ -260,17 +239,17 @@ def main():
 
     print(f"[chunk {args.chunk_id}/{args.num_chunks}] {len(chunk_smiles):,} molecules (indices [{start}, {end}))")
 
-    shard_path = shards_dir / f"chunk_{args.chunk_id:05d}.lmdb"
+    chunk_path = chunks_dir / f"chunk_{args.chunk_id:05d}.lmdb"
 
     t0 = time.perf_counter()
     n_written = generate_conformers_for_chunk(
-        chunk_smiles, shard_path, start, args.map_size_gb,
+        chunk_smiles, chunk_path, start, args.map_size_gb,
         n_conformer=args.n_conformer, num_workers=args.num_workers, timeout_s=args.timeout_s,
         commit_every=args.commit_every,
     )
     elapsed = time.perf_counter() - t0
 
-    print(f"[done] chunk {args.chunk_id}: {n_written:,} molecules written in {elapsed:.1f}s -> {shard_path}")
+    print(f"[done] chunk {args.chunk_id}: {n_written:,} molecules written in {elapsed:.1f}s -> {chunk_path}")
 
 
 if __name__ == "__main__":

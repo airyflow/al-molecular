@@ -53,18 +53,11 @@ import torch
 
 ROOT = Path(__file__).resolve().parent.parent.parent  # repo root (this file lives in embed/compute/)
 
-# generate_unimol_conformers_chunk.py / shared_embedding_store.py / unimol2/
-# all live at the repo root, not next to this file -- put ROOT on sys.path
-# so these bare imports still resolve regardless of where this script itself
-# was invoked from.
+# smiles_chunking.py / shared_embedding_store.py / unimol2/ all live at the
+# repo root, not next to this file -- put ROOT on sys.path so these bare
+# imports still resolve regardless of where this script itself was invoked from.
 sys.path.insert(0, str(ROOT))
-
-# _chunk_bounds/count_lines/read_smiles_chunk are plain chunk-math/file-reading
-# utilities local to this repo (not muben) -- reused as-is. Note importing this
-# module has a side effect of putting muben on sys.path (it needs muben itself,
-# for an unrelated function this script never calls) -- harmless, but worth
-# being precise that it's not this script's own code reaching into muben.
-from generate_unimol_conformers_chunk import _chunk_bounds, count_lines, read_smiles_chunk
+from smiles_chunking import _chunk_bounds, count_lines, read_smiles_chunk
 from shared_embedding_store import chunk_file_path, write_chunk_file
 from unimol2 import build_model_from_checkpoint
 from unimol2.data.collate import prepare_batch

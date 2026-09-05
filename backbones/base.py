@@ -71,8 +71,8 @@ class MoleculeBatch:
 
 class ConformerStore(Protocol):
     """Looks up a pre-generated (atoms, coordinates) conformer by index.
-    Two implementations (backbones/unimol.py): LmdbShardConformerStore
-    (extraction -- wraps a chunk's LMDB shard, positional index within the
+    Two implementations (backbones/unimol.py): LmdbChunkConformerStore
+    (extraction -- wraps a chunk's LMDB file, positional index within the
     chunk) and, in Phase 2, PoolCacheConformerStore (fine-tuning -- wraps
     the whole-pool conformer cache, index into the full pool)."""
 

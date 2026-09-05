@@ -15,18 +15,18 @@
 # generation only, CPU-only (RDKit ETKDG is CPU-bound, no GPU benefit).
 # See generate_unimol_conformers_chunk.py's module docstring for the full
 # design rationale -- ported from al-eval-framework's generate_conformers.py,
-# whose real 1000-shard / ~1.3B-molecule / ~7h run validated this design at
+# whose real 1000-partition / ~1.3B-molecule / ~7h run validated this design at
 # a larger scale than AmpC needs.
 #
-# --num-chunks 70 (~1.42M molecules/shard) matches that same known-good
-# per-shard size (the 1.3-1.56M/shard ratio that took ~7h/shard previously)
+# --num-chunks 70 (~1.42M molecules/chunk) matches that same known-good
+# per-chunk size (the 1.3-1.56M/chunk ratio that took ~7h/chunk previously)
 # -- --time 12h leaves real margin over that, not just matching it exactly.
 #
 # Usage:
 #   sbatch --array=0-69 slurm/embed/ampc/submit_ampc_unimol_conformers.sh
 #
-# After all 70 shards finish, Stage 2 (slurm/embed/ampc/submit_ampc_unimol_embed.sh) reads
-# directly from these per-chunk shards -- no merge step is required.
+# After all 70 chunks finish, Stage 2 (slurm/embed/ampc/submit_ampc_unimol_embed.sh) reads
+# directly from these per-chunk files -- no merge step is required.
 
 set -euo pipefail
 

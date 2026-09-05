@@ -39,13 +39,13 @@ from pathlib import Path
 
 import numpy as np
 
-# generate_unimol_conformers_chunk.py / shared_embedding_store.py live at the
+# smiles_chunking.py / shared_embedding_store.py live at the
 # repo root; this file lives in embed/stitch/, so put the repo root on
 # sys.path before importing them -- previously relied on being co-located
 # with them, which broke once this file moved.
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
-from generate_unimol_conformers_chunk import _chunk_bounds
+from smiles_chunking import _chunk_bounds
 from shared_embedding_store import chunk_file_path, preallocate, write_slice
 
 

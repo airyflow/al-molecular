@@ -15,15 +15,8 @@ from typing import Callable, List, Optional
 import numpy as np
 import torch
 
-from generate_unimol_conformers_chunk import _chunk_bounds, count_lines, read_smiles_chunk
+from smiles_chunking import _chunk_bounds, count_lines, read_smiles_chunk
 from shared_embedding_store import chunk_file_path, write_chunk_file
-
-# NOTE: _chunk_bounds/count_lines/read_smiles_chunk currently live inside
-# generate_unimol_conformers_chunk.py by historical accident (they're
-# fully backbone-agnostic). Relocating them to a proper smiles_chunking.py
-# is a separate, later cleanup step (see the approved plan) -- not bundled
-# into this initial scaffold so each migration step stays isolated and
-# independently verifiable.
 
 from .base import Backbone
 
@@ -70,7 +63,7 @@ def run_extraction(
 ) -> None:
     """The shared main()-body driver. `load_backbone(device)` is a thin
     per-script closure (usually just `lambda device: backbones.load(backbone_name, checkpoint_path=..., device=device)`)
-    so backbone-specific extra CLI flags (e.g. UniMol's --shards-dir) can
+    so backbone-specific extra CLI flags (e.g. UniMol's --conformer-chunks-dir) can
     be threaded through without this function needing to know about them."""
     total = args.total_count if args.total_count is not None else count_lines(args.smiles_file)
     start, end = _chunk_bounds(total, args.chunk_id, args.num_chunks)

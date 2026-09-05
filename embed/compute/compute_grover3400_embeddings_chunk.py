@@ -57,7 +57,7 @@ ROOT = Path(__file__).resolve().parent.parent.parent  # repo root (this file liv
 GROVER_ROOT = ROOT / "grover"
 
 sys.path.insert(0, str(ROOT))
-from generate_unimol_conformers_chunk import _chunk_bounds, count_lines, read_smiles_chunk
+from smiles_chunking import _chunk_bounds, count_lines, read_smiles_chunk
 from shared_embedding_store import chunk_file_path, write_chunk_file
 
 DEFAULT_CHECKPOINT = "/N/project/SingleCell_Image/Yang/AI Drug/Emb output/model.pt"

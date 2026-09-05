@@ -42,11 +42,11 @@ import torch
 ROOT = Path(__file__).resolve().parent.parent.parent  # repo root (this file lives in embed/compute/)
 MODEL_ZOO = ROOT / "models"
 
-# generate_unimol_conformers_chunk.py / shared_embedding_store.py live at the
+# smiles_chunking.py / shared_embedding_store.py live at the
 # repo root, not next to this file -- put ROOT on sys.path so these bare
 # imports still resolve regardless of where this script itself was invoked from.
 sys.path.insert(0, str(ROOT))
-from generate_unimol_conformers_chunk import _chunk_bounds, count_lines, read_smiles_chunk
+from smiles_chunking import _chunk_bounds, count_lines, read_smiles_chunk
 from shared_embedding_store import chunk_file_path, write_chunk_file
 
 if torch.cuda.is_available():

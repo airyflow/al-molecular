@@ -1,0 +1,6 @@
+[submodule "ibm_materials"]
+	path = ibm_materials
+	url = https://github.com/IBM/materials.git
+[submodule "grover"]
+	path = grover
+	url = https://github.com/tencent-ailab/grover.git

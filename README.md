@@ -165,23 +165,36 @@ resolution in isolation.
 
 ```
 al-molecular/
-├── data/EnamineHTS_scores.csv.gz        # real 4UNN docking scores (coleygroup/molpal)
-├── molpal/libraries/EnamineHTS.csv.gz   # 2.1M-molecule pool
-├── molpal/                              # vendored MolPAL package (models, acquirer, featurizer, ...)
-├── surrogates.py                        # ALSU surrogate classes, incl. EnsembleFusionSurrogate
-├── backbone_finetuner.py                # online backbone fine-tuning (GROVER/UniMol/MoLFormer)
-├── embed/extract_embeddings.py          # one-time frozen-embedding extraction for the pool
-├── run_experiment.py                    # single-config AL driver (top-1000 metric, EnamineHTS-only)
-├── plots/                               # figure-generation scripts (read runs/, write figures/)
-│   ├── plot_figures.py                  # the two comparison figures (greedy + UCB)
-│   ├── plot_figure4.py                  # literal reproduction of the paper's own Figure 4
-│   └── plot_figure4_extended.py         # Figure 4 + our 4 follow-up methods, one combined figure
-├── slurm/                               # all SLURM submit scripts, grouped by stage then dataset
-│   ├── embed/{enamine,ampc}/            # embedding extraction + stitch jobs
-│   └── al_runs/{enamine,ampc}/          # active-learning driver submissions (incl. run_all_configs.sh)
-├── models -> FusionAL/models            # symlink: shared pretrained backbone checkpoints
-├── muben  -> FusionAL/muben             # symlink: shared MUBen backbone library
-├── results/embed/EnamineHTS/            # extracted frozen embeddings (.npz)
-├── runs/                                # per-config AL run outputs
-└── figures/                             # final figures
+├── data/EnamineHTS_scores.csv.gz         # real 4UNN docking scores (coleygroup/molpal)
+├── molpal/libraries/EnamineHTS.csv.gz    # 2.1M-molecule pool
+├── molpal/                               # vendored MolPAL package (models, acquirer, featurizer, ...)
+├── grover/                               # git submodule: tencent-ailab/grover (real GROVER, 3400-d fingerprint)
+├── unimol/                               # git submodule: deepmodeling/Uni-Mol (v1 -- needs Uni-Core, not yet in use)
+├── unimol2/                              # vendored standalone PyTorch port of Uni-Mol2 (no Uni-Core needed)
+├── ibm_materials/                        # git submodule: IBM/materials (MHG-GED, SMI-TED, ...)
+├── muben/                                # vendored MUBen backbone library code (data/ cache not vendored -- built locally)
+├── models -> ../FusionAL/models          # symlink: shared pretrained backbone checkpoints
+├── config.env.example                    # copy to config.env and edit for your environment
+├── surrogates.py                         # ALSU surrogate classes, incl. EnsembleFusionSurrogate
+├── backbone_finetuner.py                 # online backbone fine-tuning (GROVER/UniMol/MoLFormer)
+├── smiles_chunking.py                    # shared chunk-math / SMILES-file-reading utilities
+├── shared_embedding_store.py             # shared memmap layout for per-chunk embedding output
+├── generate_unimol_conformers_chunk.py   # Uni-Mol-v1 conformer generation (Stage 1, chunked)
+├── predict_pool_shard_worker.py          # persistent-worker pool prediction for the AL loop
+├── run_experiment.py                     # single-config AL driver (top-1000 metric, EnamineHTS-only)
+├── backbones/                            # WIP Phase-2 scaffold (Backbone ABC + CLI driver) -- not yet wired into any script
+├── embed/
+│   ├── extract_embeddings.py             # one-time frozen-embedding extraction for the pool
+│   ├── compute/                          # compute_<backbone>_embeddings_chunk.py, one per backbone
+│   └── stitch/                           # stitch_embedding_chunks.py + backbone-specific stitchers
+├── plots/                                # figure-generation scripts (read runs/, write figures/)
+│   ├── plot_figures.py                   # the two comparison figures (greedy + UCB)
+│   ├── plot_figure4.py                   # literal reproduction of the paper's own Figure 4
+│   └── plot_figure4_extended.py          # Figure 4 + our 4 follow-up methods, one combined figure
+├── slurm/                                # all SLURM submit scripts, grouped by stage then dataset
+│   ├── embed/{enamine,ampc}/             # embedding extraction + stitch jobs
+│   └── al_runs/{enamine,ampc}/           # active-learning driver submissions (incl. run_all_configs.sh)
+├── results/embed/EnamineHTS/             # extracted frozen embeddings (.npz)
+├── runs/                                 # per-config AL run outputs
+└── figures/                              # final figures
 ```

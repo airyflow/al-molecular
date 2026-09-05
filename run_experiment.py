@@ -905,8 +905,8 @@ def parse_args():
              "jointly (not per-backbone) with a fresh reinit every round -- see "
              "surrogates.py's LTAllSurrogate docstring for the exact paper mapping",
     )
-    mve_grp.add_argument("--backbone", default="molformer", choices=["molformer", "grover", "unimol", "unimol2", "smited", "mhgged"])
-    mve_grp.add_argument("--backbones", nargs="+", default=["molformer"], choices=["molformer", "grover", "unimol", "unimol2", "smited", "mhgged"])
+    mve_grp.add_argument("--backbone", default="molformer", choices=["molformer", "grover", "grover3400", "unimol", "unimol2", "smited", "mhgged"])
+    mve_grp.add_argument("--backbones", nargs="+", default=["molformer"], choices=["molformer", "grover", "grover3400", "unimol", "unimol2", "smited", "mhgged"])
     mve_grp.add_argument("--parallel-predict", action="store_true",
                           help="Delegate per-round pool prediction to a persistent pool of single-GPU "
                                "workers (predict_pool_shard_worker.py) instead of predicting in-process. "

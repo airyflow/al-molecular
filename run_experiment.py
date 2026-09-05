@@ -29,6 +29,7 @@ directly (this file runs exactly one config per invocation).
 
 import argparse
 import json
+import os
 import pickle
 import time
 from pathlib import Path
@@ -41,13 +42,34 @@ from generate_unimol_conformers_chunk import _chunk_bounds
 
 ROOT = Path(__file__).resolve().parent
 
+
+def _load_config_env(path: Path) -> None:
+    """Populate os.environ from a plain KEY=value file, without overriding
+    anything already set (so real env vars -- e.g. exported by a
+    slurm/*.sh script that already sourced this same file -- win over it).
+    No-op if the file doesn't exist, so this repo behaves exactly as
+    before for anyone who hasn't created config.env -- see
+    config.env.example for the variables this reads."""
+    if not path.exists():
+        return
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if value.strip():
+            os.environ.setdefault(key.strip(), value.strip())
+
+
+_load_config_env(ROOT / "config.env")
+
 EMBED_DIR = ROOT / "results" / "embed"
 DATA_DIR = ROOT / "data"
 LIBRARY_DIR = ROOT / "molpal" / "libraries"
-RUNS_DIR = ROOT / "runs"
-RUNS_DIR.mkdir(exist_ok=True)
+RUNS_DIR = Path(os.environ.get("RUNS_DIR") or (ROOT / "runs"))
+RUNS_DIR.mkdir(parents=True, exist_ok=True)
 
-AMPC_ROOT = Path("/N/project/SingleCell_Image/mengjing/ampc_99.5M")
+AMPC_ROOT = Path(os.environ.get("AMPC_ROOT", "/N/project/SingleCell_Image/mengjing/ampc_99.5M"))
 
 # Registry so a second, much larger dataset (AmpC, 99.5M molecules, Figure 5)
 # can share this same driver without EnamineHTS's paths (all under this
@@ -74,7 +96,9 @@ DATASETS = {
         # (= "library" below), same fallback path AmpC uses.
         "library": DATA_DIR / "EnamineHTS_scores.csv.gz",
         "oracle": DATA_DIR / "EnamineHTS_scores.csv.gz",
-        "embed_dir": Path("/N/project/SingleCell_Image/mengjing/enhits_large/embed"),
+        "embed_dir": Path(os.environ.get(
+            "ENHITS_LARGE_EMBED_DIR", "/N/project/SingleCell_Image/mengjing/enhits_large/embed"
+        )),
     },
     "AmpC": {
         "library": AMPC_ROOT / "ampc_smiles.txt",

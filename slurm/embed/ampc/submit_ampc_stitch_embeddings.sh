@@ -39,10 +39,14 @@ case "$BACKBONE" in
     *) echo "Unknown backbone '$BACKBONE' -- expected grover, molformer, or unimol" >&2; exit 1 ;;
 esac
 
-source /N/slate/mengjing/miniconda3/etc/profile.d/conda.sh
-conda activate py310
-
-cd /N/slate/mengjing/repos/al-molecular
+cd "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
+set -a
+[ -f config.env ] && source config.env
+set +a
+: "${CONDA_SH:=/N/slate/mengjing/miniconda3/etc/profile.d/conda.sh}"
+: "${CONDA_ENV:=py310}"
+source "$CONDA_SH"
+conda activate "$CONDA_ENV"
 mkdir -p logs
 
 AMPC_ROOT="/N/project/SingleCell_Image/mengjing/ampc_99.5M"

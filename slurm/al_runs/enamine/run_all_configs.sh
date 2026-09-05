@@ -7,10 +7,16 @@
 # actual run's "[oracle] ... molecules" printout before trusting the numbers
 # below; if it drifts, recompute N and the INIT/BATCH arrays.
 set -euo pipefail
-# Absolute path, not "$(dirname "$0")" -- this script now lives under
-# slurm/al_runs/enamine/, not the repo root, so a dirname-relative cd would
-# land in the wrong place. Matches every other submit script's convention.
-cd /N/slate/mengjing/repos/al-molecular
+# Resolve the repo root via git rather than a hardcoded path or a plain
+# "$(dirname "$0")" -- this script lives 3 directories deep
+# (slurm/al_runs/enamine/), and a hardcoded absolute path would silently
+# operate on the WRONG checkout if this repo is ever cloned or copied
+# somewhere else. This works from any clone, at any depth, as long as
+# .git is intact.
+cd "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
+set -a
+[ -f config.env ] && source config.env
+set +a
 
 N=2104319
 FRACS=(0.004 0.002 0.001)

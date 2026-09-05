@@ -114,10 +114,14 @@ esac
 AMPC_ROOT="/N/project/SingleCell_Image/mengjing/ampc_99.5M"
 COORD_DIR="$AMPC_ROOT/al_coord/$SURROGATE"
 
-source /N/slate/mengjing/miniconda3/etc/profile.d/conda.sh
-conda activate py310
-
-cd /N/slate/mengjing/repos/al-molecular
+cd "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
+set -a
+[ -f config.env ] && source config.env
+set +a
+: "${CONDA_SH:=/N/slate/mengjing/miniconda3/etc/profile.d/conda.sh}"
+: "${CONDA_ENV:=py310}"
+source "$CONDA_SH"
+conda activate "$CONDA_ENV"
 mkdir -p logs "$COORD_DIR"
 
 export OMP_NUM_THREADS=8

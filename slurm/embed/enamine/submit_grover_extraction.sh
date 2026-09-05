@@ -42,10 +42,14 @@ NUM_CHUNKS="${1:?Usage: sbatch --array=0-N slurm/embed/enamine/submit_grover_ext
 TOTAL_COUNT="${2:-}"
 CHUNK_ID="${SLURM_ARRAY_TASK_ID:?This script must be submitted with --array=0-$((NUM_CHUNKS - 1)) (SLURM_ARRAY_TASK_ID is unset)}"
 
-source /N/slate/mengjing/miniconda3/etc/profile.d/conda.sh
-conda activate py310
-
-cd /N/slate/mengjing/repos/al-molecular
+cd "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
+set -a
+[ -f config.env ] && source config.env
+set +a
+: "${CONDA_SH:=/N/slate/mengjing/miniconda3/etc/profile.d/conda.sh}"
+: "${CONDA_ENV:=py310}"
+source "$CONDA_SH"
+conda activate "$CONDA_ENV"
 mkdir -p logs
 
 # Same thread-oversubscription guard used in al-eval-framework's SLURM scripts.

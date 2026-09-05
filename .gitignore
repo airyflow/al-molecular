@@ -9,3 +9,4 @@ figures/*.png
 __pycache__/
 *.pyc
 slides/
+config.env

@@ -51,10 +51,14 @@ if [ "$TASK_ID" -ge "$NUM_CHUNKS" ]; then
     exit 0
 fi
 
-source /N/slate/mengjing/miniconda3/etc/profile.d/conda.sh
-conda activate py310
-
-cd /N/slate/mengjing/repos/al-molecular
+cd "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
+set -a
+[ -f config.env ] && source config.env
+set +a
+: "${CONDA_SH:=/N/slate/mengjing/miniconda3/etc/profile.d/conda.sh}"
+: "${CONDA_ENV:=py310}"
+source "$CONDA_SH"
+conda activate "$CONDA_ENV"
 mkdir -p logs
 
 export OMP_NUM_THREADS="$SLURM_CPUS_PER_TASK"

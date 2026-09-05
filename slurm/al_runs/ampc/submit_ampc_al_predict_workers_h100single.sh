@@ -97,10 +97,14 @@ TASK_ID="${SLURM_ARRAY_TASK_ID:?This script must be submitted with --array=0-N (
 COORD_DIR="${1:?Usage: sbatch --array=0-N slurm/al_runs/ampc/submit_ampc_al_predict_workers_h100single.sh <coord-dir> <num-shards>}"
 NUM_SHARDS="${2:?Usage: sbatch --array=0-N slurm/al_runs/ampc/submit_ampc_al_predict_workers_h100single.sh <coord-dir> <num-shards>}"
 
-source /N/slate/mengjing/miniconda3/etc/profile.d/conda.sh
-conda activate py310
-
-cd /N/slate/mengjing/repos/al-molecular
+cd "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
+set -a
+[ -f config.env ] && source config.env
+set +a
+: "${CONDA_SH:=/N/slate/mengjing/miniconda3/etc/profile.d/conda.sh}"
+: "${CONDA_ENV:=py310}"
+source "$CONDA_SH"
+conda activate "$CONDA_ENV"
 mkdir -p logs "$COORD_DIR"
 
 export OMP_NUM_THREADS=4

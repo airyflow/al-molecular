@@ -17,6 +17,7 @@ from typing import Dict, List
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torch.utils.data import Dataset
 
 from .process import ProcessingPipeline
 
@@ -58,6 +59,35 @@ def build_instance(atoms: List[str], coordinates: np.ndarray, pipeline: Processi
     record stored, here always length 1)."""
     atoms_t, coords_t, dist_t, edge_t = pipeline.process_inference(atoms, [coordinates])
     return {"atoms": atoms_t, "coordinates": coords_t, "distances": dist_t, "edge_types": edge_t}
+
+
+class ConformerDataset(Dataset):
+    """Wraps pre-loaded (atoms, single conformer) pairs for use with a
+    `DataLoader(..., collate_fn=CollatorUniMol(...))` -- lets featurization
+    (`ProcessingPipeline.process_instance`, CPU-bound: tokenize + edge-type
+    broadcast + a `scipy.spatial.distance_matrix` call) run in background
+    DataLoader worker processes, overlapped with the GPU forward pass on
+    the previous batch -- matching the parallel-prefetch pattern muben's
+    `DatasetUniMol`-backed loader used, so per-chunk extraction throughput
+    doesn't regress relative to before this port.
+
+    `coordinates_list[i]` must be ONE (with-hydrogen) conformer per
+    molecule (an (n_atoms, 3) array), not a list of several -- callers keep
+    only conformer index 0 before constructing this (see
+    generate_unimol_conformers_chunk.py's docstring on the always-appended
+    2D-fallback conformer)."""
+
+    def __init__(self, atoms_list: List[List[str]], coordinates_list: List[np.ndarray], pipeline: ProcessingPipeline):
+        assert len(atoms_list) == len(coordinates_list)
+        self._atoms = atoms_list
+        self._coordinates = coordinates_list
+        self._pipeline = pipeline
+
+    def __len__(self) -> int:
+        return len(self._atoms)
+
+    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
+        return build_instance(self._atoms[idx], self._coordinates[idx], self._pipeline)
 
 
 class CollatorUniMol:

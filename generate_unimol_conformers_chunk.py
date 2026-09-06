@@ -65,12 +65,6 @@ os.environ.setdefault("OPENBLAS_NUM_THREADS", "4")
 
 import lmdb
 
-import sys
-ROOT = Path(__file__).resolve().parent
-_muben_root = ROOT / "muben"
-if str(_muben_root) not in sys.path:
-    sys.path.insert(0, str(_muben_root))
-
 from smiles_chunking import _chunk_bounds, count_lines, read_smiles_chunk
 
 _KEY_WIDTH = 13  # zero-padded decimal width; comfortably covers > 1.3B indices
@@ -102,7 +96,7 @@ def generate_conformers_for_chunk(
     global index already has an entry in `chunk_path` (e.g. from a prior
     killed attempt) are skipped rather than regenerated.
     """
-    from muben.utils.chem import smiles_to_coords, smiles_to_2d_coords
+    from unimol1.data.conformer import smiles_to_coords, smiles_to_2d_coords
     from rdkit import Chem
     from rdkit.Chem import AllChem
     from tqdm.auto import tqdm

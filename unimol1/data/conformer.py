@@ -15,6 +15,9 @@ from __future__ import annotations
 
 import logging
 import warnings
+from functools import partial
+from multiprocessing import get_context
+from multiprocessing import TimeoutError as MPTimeoutError
 from typing import List, Tuple
 
 import numpy as np
@@ -81,3 +84,36 @@ def smiles_to_coords(smiles: str, n_conformer: int = 10) -> Tuple[List[str], Lis
     mol = AllChem.AddHs(mol)
     atoms = [atom.GetSymbol() for atom in mol.GetAtoms()]
     return atoms, coordinates
+
+
+def generate_conformers(
+    smiles_list: List[str], n_conformer: int = 1, num_workers: int = 4, timeout_s: int = 30,
+) -> List[Tuple[List[str], np.ndarray]]:
+    """Bulk, in-memory, timeout-protected conformer generation for a whole
+    SMILES list -- for single-process/whole-pool callers (e.g.
+    embed/extract_embeddings.py) that don't need Stage 1's separate
+    LMDB-persisted-chunk design (see generate_unimol_conformers_chunk.py,
+    which duplicates this same worker-pool/timeout pattern for its own
+    LMDB-writing use case rather than calling this). Returns one
+    (atoms_with_h, single_coords) pair per input SMILES, in the same order
+    -- `single_coords` is already reduced to the first real conformer
+    (index 0), matching production's own "keep only conformer index 0"
+    convention (see compute_unimol_embeddings_chunk.py's docstring)."""
+    s2c = partial(smiles_to_coords, n_conformer=n_conformer)
+    results: List[Tuple[List[str], np.ndarray]] = [None] * len(smiles_list)
+
+    with get_context("fork").Pool(num_workers) as pool:
+        pending = [(i, smi, pool.apply_async(s2c, (smi,))) for i, smi in enumerate(smiles_list)]
+        for i, smi, async_result in pending:
+            try:
+                atoms, coordinates = async_result.get(timeout=timeout_s)
+            except MPTimeoutError:
+                print(f"[timeout] {smi!r} -- falling back to 2D coordinates")
+                mol = Chem.MolFromSmiles(smi)
+                coordinates = [smiles_to_2d_coords(smi)] * (n_conformer + 1)
+                mol = AllChem.AddHs(mol)
+                atoms = [atom.GetSymbol() for atom in mol.GetAtoms()]
+
+            results[i] = (list(atoms), np.asarray(coordinates[0], dtype=np.float32))
+
+    return results

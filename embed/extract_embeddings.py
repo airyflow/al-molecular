@@ -43,6 +43,11 @@ _muben_root = ROOT / "muben"
 if str(_muben_root) not in sys.path:
     sys.path.insert(0, str(_muben_root))
 
+# unimol1/ (repo root) -- muben-free Uni-Mol v1 port used by extract_unimol().
+# GROVER extraction (extract_grover()) still uses muben directly, above.
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 if torch.cuda.is_available():
     DEVICE = torch.device("cuda")
     torch.backends.cuda.matmul.allow_tf32 = True
@@ -233,59 +238,50 @@ def extract_grover(smiles: list):
 def extract_unimol(smiles: list):
     print("\n>>> Uni-Mol 3D Conformational Representations...")
 
-    from muben.dataset import DatasetUniMol
-    from muben.dataset.dataset_unimol import CollatorUniMol
-    from muben.dataset.dataset_unimol.dictionary import DictionaryUniMol
-    from muben.model.unimol.unimol import UniMol
+    # Standalone, muben-free port (unimol1/, repo root) -- verified bit-exact
+    # against muben's own UniMol (see unimol1/model.py's docstring and
+    # unimol1/tests/). No conformer-shard staging here (unlike AmpC's split
+    # generate_unimol_conformers_chunk.py / compute_unimol_embeddings_chunk.py
+    # pipeline) -- ENHITS's 2.1M pool fits a single in-memory pass.
+    from unimol1 import UniMolConfig, build_model_from_checkpoint, load_production_dictionary
+    from unimol1.data import CollatorUniMol, ConformerDataset, ProcessingPipeline, generate_conformers
 
     unimol_ckpt = MODEL_ZOO / "unimol" / "mol_pre_all_h_220816.pt"
-    config = MubenRuntimeConfig(model_name="unimol", feature_type="unimol", checkpoint_path=unimol_ckpt)
+    config = UniMolConfig(checkpoint_path=str(unimol_ckpt))
+    dictionary = load_production_dictionary()
 
-    dataset = DatasetUniMol()
-    dataset.prepare(config=config, partition="train")
+    print(f"[unimol] generating conformers for {len(smiles):,} molecules...")
+    conformers = generate_conformers(smiles, n_conformer=1, num_workers=4, timeout_s=30)
+    atoms_list = [a for a, _ in conformers]
+    coordinates_list = [c for _, c in conformers]
 
-    unimol_dict = DictionaryUniMol.load()
-    unimol_dict.add_symbol("[MASK]", is_special=True)
-
-    collator = CollatorUniMol(config, unimol_dict)
-    pad_idx = unimol_dict.pad()
-    collator._atom_pad_idx = pad_idx
-    collator.pad_idx = pad_idx
-    collator.atom_pad_idx = pad_idx
+    pipeline = ProcessingPipeline(
+        dictionary=dictionary, max_atoms=config.max_atoms, max_seq_len=config.max_seq_len,
+        remove_hydrogen_flag=config.remove_hydrogen, remove_polar_hydrogen_flag=config.remove_polar_hydrogen,
+    )
+    dataset = ConformerDataset(atoms_list, coordinates_list, pipeline)
+    collator = CollatorUniMol(atom_pad_idx=dictionary.pad())
 
     loader = DataLoader(
         dataset, batch_size=256, shuffle=False, collate_fn=collator,
         num_workers=4, pin_memory=True, persistent_workers=True, prefetch_factor=2,
     )
 
-    model = UniMol(config=config, dictionary=unimol_dict).to(DEVICE)
-
-    def _get_embeddings(self, batch):
-        src_tokens, src_distance, src_edge_type = batch.atoms, batch.distances, batch.edge_types
-        padding_mask = src_tokens.eq(self.padding_idx)
-        if not padding_mask.any():
-            padding_mask = None
-
-        x = self.embed_tokens(src_tokens)
-        n_node = src_distance.size(-1)
-        gbf_feat = self.gbf(src_distance, src_edge_type)
-        gbf_result = self.gbf_proj(gbf_feat)
-        attn_bias = gbf_result.permute(0, 3, 1, 2).contiguous().view(-1, n_node, n_node)
-
-        encoder_rep, _, _, _, _ = self.encoder(x, padding_mask=padding_mask, attn_mask=attn_bias)
-        return self.hidden_layer(encoder_rep[:, 0, :])
-
-    model.get_embeddings = types.MethodType(_get_embeddings, model)
-    model.eval()
+    # build_model_from_checkpoint() calls torch.manual_seed(config.construction_seed)
+    # immediately before constructing the model -- see unimol1/checkpoint.py's
+    # docstring on why (hidden_layer, the actual embedding projection, isn't
+    # checkpoint-covered, so a fixed seed is the only thing making it
+    # reproducible/comparable across separate runs and processes).
+    model = build_model_from_checkpoint(config=config, dictionary=dictionary).to(DEVICE)
 
     embeddings = []
     amp_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
 
     with torch.no_grad():
         for batch in loader:
-            batch.to(DEVICE)
+            batch = batch.to(DEVICE)
             with torch.autocast(device_type=DEVICE.type, dtype=amp_dtype, enabled=(DEVICE.type == "cuda")):
-                feat = model.get_embeddings(batch)
+                feat = model(batch)
             embeddings.append(feat.float().cpu().numpy())
 
     matrix = np.vstack(embeddings)

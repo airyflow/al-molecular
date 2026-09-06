@@ -3,11 +3,14 @@
 directly from one conformer chunk file produced by generate_unimol_conformers_chunk.py.
 
 Ported from al-eval-framework's src/representations/compute_unimol_embeddings_chunk.py,
-adapted for molpal-fusion-hts: uses a self-contained config class (not
-extract_embeddings.py's MubenRuntimeConfig, which hardcodes
-DATASET = "EnamineHTS" at module level and would silently point
-unimol_feature_dir at the wrong dataset for AmpC), and writes into a shared
-memmap (see shared_embedding_store.py) instead of a per-chunk .npz.
+adapted for molpal-fusion-hts: uses a self-contained config class, and
+writes into a shared memmap (see shared_embedding_store.py) instead of a
+per-chunk .npz.
+
+Uses the standalone `unimol1` package (unimol1/, repo root) -- a
+muben-free port of muben's own Uni-Mol v1 model/dataset code, verified
+bit-exact against it (see unimol1/model.py's docstring and
+unimol1/tests/). This script no longer imports anything from muben.
 
 No conformer-chunk merge is needed because embedding computation only
 needs, for each molecule, its SMILES plus its conformer (atoms/coordinates)
@@ -37,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import pickle
 
 os.environ.setdefault("OMP_NUM_THREADS", "4")
 os.environ.setdefault("MKL_NUM_THREADS", "4")
@@ -45,9 +49,9 @@ os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
 
 import sys
 import time
-import types
 from pathlib import Path
 
+import lmdb
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
@@ -58,16 +62,14 @@ if hasattr(torch.serialization, "add_safe_globals"):
 ROOT = Path(__file__).resolve().parent.parent.parent  # repo root (this file lives in embed/compute/)
 MODEL_ZOO = ROOT / "models"
 
-_muben_root = ROOT / "muben"
-if str(_muben_root) not in sys.path:
-    sys.path.insert(0, str(_muben_root))
-
-# smiles_chunking.py / shared_embedding_store.py live at the
+# smiles_chunking.py / shared_embedding_store.py / unimol1/ all live at the
 # repo root, not next to this file -- put ROOT on sys.path so these bare
 # imports still resolve regardless of where this script itself was invoked from.
 sys.path.insert(0, str(ROOT))
 from smiles_chunking import _chunk_bounds, count_lines, read_smiles_chunk
 from shared_embedding_store import chunk_file_path, write_chunk_file
+from unimol1 import UniMolConfig, build_model_from_checkpoint, load_production_dictionary
+from unimol1.data import CollatorUniMol, ConformerDataset, ProcessingPipeline
 
 if torch.cuda.is_available():
     DEVICE = torch.device("cuda")
@@ -77,43 +79,24 @@ else:
     DEVICE = torch.device("cpu")
 
 
-class _UniMolConfig:
-    """Minimal attribute bag for DatasetUniMol/CollatorUniMol/UniMol model
-    construction -- same field values already validated in
-    backbone_finetuner.py's _MubenConfig (used throughout this repo's AL
-    pipeline), kept self-contained here rather than imported to avoid this
-    script depending on backbone_finetuner.py's AL-specific machinery."""
-
-    def __init__(self, checkpoint_path: Path):
-        self.checkpoint_path = str(checkpoint_path)
-        self.disable_checkpoint_loading = False
-        self.feature_type = "unimol"
-        self.task_type = "regression"
-        self.uncertainty_method = "none"
-        self.bbp_prior_sigma = 0.5
-        self.n_lbs = 1
-        self.n_tasks = 1
-        self.dropout = 0.0
-        self.max_atoms = 64
-        self.max_seq_len = 80
-        self.only_polar_hydrogens = False
-        self.remove_hydrogen = True
-        self.remove_polar_hydrogen = False
-        self.encoder_embed_dim = 512
-        self.encoder_layers = 15
-        self.encoder_attention_heads = 64
-        self.encoder_ffn_embed_dim = 2048
-        self.activation_fn = "gelu"
-        self.pooler_stride = 1
-        self.pooler_dropout = 0.0
-        self.emb_dropout = 0.1
-        self.attention_dropout = 0.1
-        self.activation_dropout = 0.0
-        self.delta_pair_repr_norm_loss = -1
-        self.masked_coord_loss = 0.0
-        self.masked_dist_loss = 0.0
-        self.masked_type_loss = 0.0
-        self.pooler_activation_fn = "Tanh"
+def _load_conformer_chunk(chunk_path: Path) -> tuple[list, list]:
+    """Reads the LMDB chunk file Stage 1 wrote -- one pickled
+    {"atoms": [...], "coordinates": [...]} record per molecule, keyed by
+    zero-padded global index. LMDB's cursor iterates keys in
+    byte-lexicographic order, which (thanks to the zero-padding) is also
+    correct numeric order, matching chunk_smiles' positional order.
+    Replaces muben's `utils.io.load_lmdb` -- this repo's own Stage 1
+    writes a fixed 2-key record shape, so a generic multi-key reader isn't
+    needed."""
+    env = lmdb.open(str(chunk_path), subdir=False, readonly=True, lock=False, readahead=False, meminit=False, max_readers=256)
+    atoms_list, coordinates_list = [], []
+    with env.begin() as txn:
+        for _, value in txn.cursor():
+            record = pickle.loads(value)
+            atoms_list.append(record["atoms"])
+            coordinates_list.append(record["coordinates"])
+    env.close()
+    return atoms_list, coordinates_list
 
 
 def _verify_alignment(chunk_smiles: list, atoms: list, sample_size: int = 20, seed: int = 0) -> None:
@@ -153,117 +136,47 @@ def _verify_alignment(chunk_smiles: list, atoms: list, sample_size: int = 20, se
         )
 
 
-def load_chunk_dataset(chunk_smiles: list, chunk_path: Path, config):
-    """Builds a DatasetUniMol directly from one conformer chunk file, bypassing
-    DatasetUniMol.prepare()'s directory/partition-based file lookup (which
-    expects one merged {partition}.lmdb, not many per-chunk files)."""
-    from muben.dataset import DatasetUniMol
-    from muben.dataset.dataset_unimol.dictionary import DictionaryUniMol
-    from muben.dataset.dataset_unimol.process import ProcessingPipeline
-    from muben.utils.io import load_lmdb
-
-    dictionary = DictionaryUniMol.load()
-    dictionary.add_symbol("[MASK]", is_special=True)
-
-    dataset = DatasetUniMol()
-    dataset._partition = "test"
-    dataset.processing_pipeline = ProcessingPipeline(
-        dictionary=dictionary, max_atoms=config.max_atoms, max_seq_len=config.max_seq_len,
-        remove_hydrogen_flag=config.remove_hydrogen, remove_polar_hydrogen_flag=config.remove_polar_hydrogen,
-    )
-    # "training" routes through process_training() -> conformer_sampling(), which
-    # asserts exactly 11 stored conformers (the original UniMol paper's
-    # training-time augmentation scheme). Stage 1 (generate_unimol_conformers_chunk.py)
-    # deliberately stores only n_conformer=1 per molecule to save disk, so this
-    # must use "inference" instead -- process_inference() loops over however many
-    # conformers are actually present rather than asserting a fixed count.
-    dataset.set_processor_variant("inference")
-
-    n = len(chunk_smiles)
-    dataset._smiles = chunk_smiles
-    dataset._lbs = np.zeros((n, 1), dtype=np.float32)
-    dataset._masks = np.ones((n, 1), dtype=np.float32)
-    dataset._ori_ids = None
-    dataset._atoms, coordinates = load_lmdb(str(chunk_path), ["atoms", "coordinates"])
-    # generate_unimol_conformers_chunk.py's smiles_to_coords(n_conformer=1) ALWAYS
-    # appends a 2D-fallback conformer in ADDITION to the 1 requested 3D conformer
-    # (see muben.utils.chem.smiles_to_coords: "coordinates.append(smiles_to_2d_coords(...))"
-    # runs unconditionally, not just on failure) -- so each chunk file's record actually
-    # stores 2 conformers, not 1. process_inference() correctly (by design) loops
-    # over every stored conformer, so leaving this alone silently doubles every
-    # embedding row (verified directly: chunk 0 shipped 2,841,702 rows for
-    # 1,420,851 molecules -- exactly 2x -- before this fix). Keep only the first
-    # (real, or 2D-fallback-on-failure) conformer per molecule -- index 0 is
-    # always the primary one Stage 1 intended, index 1 is the always-appended extra.
-    dataset._coordinates = [c[:1] for c in coordinates]
-    assert len(dataset._atoms) == n, (
-        f"Chunk file {chunk_path} has {len(dataset._atoms)} records but the chunk has {n} SMILES -- "
-        f"mismatched chunk boundaries (wrong --num-chunks/--total-count?) or an incomplete chunk file."
-    )
-    _verify_alignment(chunk_smiles, dataset._atoms)
-
-    return dataset, dictionary
-
-
 def compute_embeddings_for_chunk(
     chunk_smiles: list, chunk_path: Path, checkpoint_path: Path,
     batch_size: int = 256, num_workers: int = 4,
 ) -> np.ndarray:
-    from muben.dataset.dataset_unimol import CollatorUniMol
-    from muben.model.unimol.unimol import UniMol
+    config = UniMolConfig(checkpoint_path=str(checkpoint_path))
+    dictionary = load_production_dictionary()
 
-    config = _UniMolConfig(checkpoint_path=checkpoint_path)
-    dataset, unimol_dict = load_chunk_dataset(chunk_smiles, chunk_path, config)
+    atoms_list, coordinates_list = _load_conformer_chunk(chunk_path)
+    assert len(atoms_list) == len(chunk_smiles), (
+        f"Chunk file {chunk_path} has {len(atoms_list)} records but the chunk has {len(chunk_smiles)} SMILES -- "
+        f"mismatched chunk boundaries (wrong --num-chunks/--total-count?) or an incomplete chunk file."
+    )
+    _verify_alignment(chunk_smiles, atoms_list)
 
-    # UniMol.__init__ builds `hidden_layer` (the final Linear that produces
-    # the returned embedding, applied to encoder_rep[:, 0, :]) AFTER
-    # init_bert_params runs, then loads the pretrained checkpoint with
-    # strict=False -- the checkpoint doesn't cover hidden_layer's weights
-    # (confirmed: it's a downstream projection head, not part of generic
-    # pretraining), so hidden_layer is left at whatever PyTorch's default
-    # random init gave it. With no fixed seed, every separate process that
-    # constructs this model (i.e. every chunk task, each a distinct SLURM
-    # array task / distinct Python process) gets its OWN independent
-    # random projection -- meaning different chunks' embeddings would live
-    # in mutually incomparable random spaces, not just be individually
-    # "untrained". Fixing the seed here makes every chunk's hidden_layer
-    # bit-identical, so the whole pool is at least internally coherent
-    # (still an untrained/arbitrary final projection, but consistently the
-    # same one everywhere). Chosen arbitrarily; must never change once any
-    # chunk has been computed with it, or re-running a subset of chunks
-    # would silently reintroduce the same incoherence this fixes.
-    torch.manual_seed(20260813)
+    # generate_unimol_conformers_chunk.py's smiles_to_coords(n_conformer=1) ALWAYS
+    # appends a 2D-fallback conformer in ADDITION to the 1 requested 3D conformer,
+    # so each chunk file's record actually stores 2 conformers, not 1 -- keep only
+    # the first (real, or 2D-fallback-on-failure) conformer per molecule, index 0
+    # is always the primary one Stage 1 intended (verified directly in the muben-
+    # based version of this script: omitting this fix silently doubled every
+    # embedding row).
+    coordinates_list = [c[0] for c in coordinates_list]
 
-    collator = CollatorUniMol(config, unimol_dict)
-    pad_idx = unimol_dict.pad()
-    collator._atom_pad_idx = pad_idx
-    collator.pad_idx = pad_idx
-    collator.atom_pad_idx = pad_idx
-
+    pipeline = ProcessingPipeline(
+        dictionary=dictionary, max_atoms=config.max_atoms, max_seq_len=config.max_seq_len,
+        remove_hydrogen_flag=config.remove_hydrogen, remove_polar_hydrogen_flag=config.remove_polar_hydrogen,
+    )
+    dataset = ConformerDataset(atoms_list, coordinates_list, pipeline)
+    collator = CollatorUniMol(atom_pad_idx=dictionary.pad())
     loader = DataLoader(
         dataset, batch_size=batch_size, shuffle=False, collate_fn=collator,
         num_workers=num_workers, pin_memory=True,
     )
 
-    model = UniMol(config=config, dictionary=unimol_dict).to(DEVICE)
-
-    def _get_embeddings(self, batch):
-        src_tokens, src_distance, src_edge_type = batch.atoms, batch.distances, batch.edge_types
-        padding_mask = src_tokens.eq(self.padding_idx)
-        if not padding_mask.any():
-            padding_mask = None
-
-        x = self.embed_tokens(src_tokens)
-        n_node = src_distance.size(-1)
-        gbf_feat = self.gbf(src_distance, src_edge_type)
-        gbf_result = self.gbf_proj(gbf_feat)
-        attn_bias = gbf_result.permute(0, 3, 1, 2).contiguous().view(-1, n_node, n_node)
-
-        encoder_rep, _, _, _, _ = self.encoder(x, padding_mask=padding_mask, attn_mask=attn_bias)
-        return self.hidden_layer(encoder_rep[:, 0, :])
-
-    model.get_embeddings = types.MethodType(_get_embeddings, model)
-    model.eval()
+    # build_model_from_checkpoint() calls torch.manual_seed(config.construction_seed)
+    # immediately before constructing the model -- see unimol1/checkpoint.py and
+    # unimol1/model.py's docstrings for why every chunk task needs this same seed:
+    # hidden_layer (the actual embedding projection) isn't covered by the
+    # checkpoint, so without a fixed seed each chunk's projection would be a
+    # different, mutually-incomparable random space.
+    model = build_model_from_checkpoint(config=config, dictionary=dictionary).to(DEVICE)
 
     embeddings = []
     amp_dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
@@ -271,10 +184,10 @@ def compute_embeddings_for_chunk(
 
     with torch.no_grad():
         for batch in loader:
-            batch.to(DEVICE)
+            batch = batch.to(DEVICE)
             with torch.autocast(**autocast_kwargs):
-                feat = model.get_embeddings(batch)
-            embeddings.append(feat.float().cpu().numpy())
+                emb = model(batch)
+            embeddings.append(emb.float().cpu().numpy())
 
     return np.vstack(embeddings)
 

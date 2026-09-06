@@ -169,7 +169,7 @@ al-molecular/
 ├── molpal/libraries/EnamineHTS.csv.gz    # 2.1M-molecule pool
 ├── molpal/                               # vendored MolPAL package (models, acquirer, featurizer, ...)
 ├── grover/                               # git submodule: tencent-ailab/grover (real GROVER, 3400-d fingerprint)
-├── unimol/                               # git submodule: deepmodeling/Uni-Mol (v1 -- needs Uni-Core, not yet in use)
+├── unimol1/                              # vendored standalone PyTorch port of Uni-Mol v1 (no Uni-Core needed)
 ├── unimol2/                              # vendored standalone PyTorch port of Uni-Mol2 (no Uni-Core needed)
 ├── ibm_materials/                        # git submodule: IBM/materials (MHG-GED, SMI-TED, ...)
 ├── muben/                                # vendored MUBen backbone library code (data/ cache not vendored -- built locally)

@@ -4,6 +4,3 @@
 [submodule "grover"]
 	path = grover
 	url = https://github.com/tencent-ailab/grover.git
-[submodule "unimol"]
-	path = unimol
-	url = https://github.com/deepmodeling/Uni-Mol.git

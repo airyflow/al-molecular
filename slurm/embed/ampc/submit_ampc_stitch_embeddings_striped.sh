@@ -57,16 +57,29 @@ BACKBONE="${1:?Usage: sbatch slurm/embed/ampc/submit_ampc_stitch_embeddings_stri
 # value passed to their extract array job, or _chunk_bounds() will not line
 # up and the stitch will error on a row-count mismatch.
 case "$BACKBONE" in
-    grover)    DIM=1600; NUM_CHUNKS=150 ;;
-    molformer) DIM=768;  NUM_CHUNKS=50  ;;
-    unimol)    DIM=512;  NUM_CHUNKS=70  ;;
-    smited)    DIM=768;  NUM_CHUNKS="${2:?smited needs NUM_CHUNKS as \$2 (same value as the extract job)}" ;;
-    mhgged)    DIM=1024; NUM_CHUNKS="${2:?mhgged needs NUM_CHUNKS as \$2 (same value as the extract job)}" ;;
-    unimol2)   DIM=1536; NUM_CHUNKS="${2:?unimol2 needs NUM_CHUNKS as \$2 (same value as the extract job)}" ;;
+    grover)     DIM=1600; NUM_CHUNKS=150 ;;
+    molformer)  DIM=768;  NUM_CHUNKS=50  ;;
+    unimol)     DIM=512;  NUM_CHUNKS=70  ;;
+    smited)     DIM=768;  NUM_CHUNKS="${2:?smited needs NUM_CHUNKS as \$2 (same value as the extract job)}" ;;
+    mhgged)     DIM=1024; NUM_CHUNKS="${2:?mhgged needs NUM_CHUNKS as \$2 (same value as the extract job)}" ;;
+    unimol2)    DIM=1536; NUM_CHUNKS="${2:?unimol2 needs NUM_CHUNKS as \$2 (same value as the extract job)}" ;;
+    grover3400) DIM=3400; NUM_CHUNKS="${2:?grover3400 needs NUM_CHUNKS as \$2 (same value as the extract job)}" ;;
     *) echo "Unknown backbone '$BACKBONE'" >&2; exit 1 ;;
 esac
 
-cd "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
+if [ -n "${SLURM_SUBMIT_DIR:-}" ]; then
+    # Under sbatch, BASH_SOURCE[0] is not reliable -- sbatch may spool the
+    # submitted script to an internal location disconnected from both its
+    # original path and the submission directory (observed directly on
+    # this cluster: a real job's git-based resolution below failed with
+    # "fatal: not a git repository" on every one of its array tasks).
+    # SLURM always sets SLURM_SUBMIT_DIR to the real directory `sbatch` was
+    # invoked from -- every script in this repo is documented to be
+    # submitted from the repo root, so this is exactly the repo root.
+    cd "$SLURM_SUBMIT_DIR"
+else
+    cd "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
+fi
 set -a
 [ -f config.env ] && source config.env
 set +a

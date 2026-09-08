@@ -57,7 +57,19 @@ set -euo pipefail
 
 TASK_ID="${SLURM_ARRAY_TASK_ID:?This script must be submitted with --array=0-17 (SLURM_ARRAY_TASK_ID is unset)}"
 
-cd "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
+if [ -n "${SLURM_SUBMIT_DIR:-}" ]; then
+    # Under sbatch, BASH_SOURCE[0] is not reliable -- sbatch may spool the
+    # submitted script to an internal location disconnected from both its
+    # original path and the submission directory (observed directly on
+    # this cluster: a real job's git-based resolution below failed with
+    # "fatal: not a git repository" on every one of its array tasks).
+    # SLURM always sets SLURM_SUBMIT_DIR to the real directory `sbatch` was
+    # invoked from -- every script in this repo is documented to be
+    # submitted from the repo root, so this is exactly the repo root.
+    cd "$SLURM_SUBMIT_DIR"
+else
+    cd "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
+fi
 set -a
 [ -f config.env ] && source config.env
 set +a

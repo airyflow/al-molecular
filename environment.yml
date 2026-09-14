@@ -1,0 +1,134 @@
+# Conda environment for al-molecular, matching the real working "py310" env
+# (name chosen to match config.env's CONDA_ENV default -- rename freely,
+# just update config.env's CONDA_ENV to match).
+#
+# Create it:
+#   conda env create -f environment.yml
+#   conda activate py310
+#   # then see "Installing PyTorch" below -- torch is NOT in this file,
+#   # and "Uni-Mol v1's legacy `grover` backbone" below -- unicore is NOT
+#   # pip-installable and also excluded
+#
+# This list is the real installed package set + exact versions from the
+# actual working py310 environment (`pip freeze`, 2026-09-10), not from
+# the vendored submodules' own requirements.txt files.
+#
+# IMPORTANT: do NOT `pip install -r ibm_materials/requirements.txt` or
+# `pip install -r grover/requirements.txt` on top of this env -- those are
+# each subproject's own upstream requirements file (grover's, in
+# particular, targets Python 3.6 + torch 1.1.0 -- what the original
+# tencent-ailab/grover repo used, NOT what this repo's own grover3400 port
+# actually runs against). Installing them directly conflicts with each
+# other and with this file. The versions below are what's actually been
+# resolved to work together across ibm_materials' models (mhg-ged,
+# smi-ted) and this repo's own code -- if you need a package not listed
+# here, add it individually and check for conflicts, rather than pulling
+# in a vendored subproject's full requirements file.
+name: py310
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      # Core scientific stack
+      - numpy==2.2.6
+      - pandas
+      - scipy==1.15.2
+      - scikit-learn==1.7.2
+      - rdkit
+      - networkx
+
+      # Chunked embedding storage / extraction
+      - lmdb==2.2.1
+      - joblib
+      - regex==2026.5.9
+      - requests
+      - tqdm==4.68.2
+
+      # HF-based backbones (MoLFormer, SMI-TED, MHG-GED) + GROVER (real, grover3400)
+      - transformers==4.57.6
+      - tokenizers==0.22.2
+      - safetensors==0.8.0
+      - datasets==5.0.1
+      - huggingface_hub==0.36.2
+      - torch-optimizer==0.3.0
+      - dgllife==0.3.2
+      - descriptastorus==2.8.0
+
+      # Used by molpal/'s legacy scoring backends (--mode molpal, some
+      # --model choices) -- NOT needed for embedding generation or for
+      # --mode mve/--surrogate ltall|ensemble|learned, which is what most
+      # of this repo's actual usage is. Present here because the real
+      # working env has them; skip if you're only doing embeddings + MVE/LT-All.
+      - pytorch-lightning==2.6.5
+      - lightgbm==4.7.0
+      - ray==2.56.1
+      - h5py
+      - debugpy==1.8.21
+
+      # Plotting (plots/*.py, RDKit molecule drawing)
+      - matplotlib==3.10.9
+      - reportlab
+      - pypdf==6.15.0
+      - pycairo==1.29.0
+      - rlPyCairo
+
+      # Optional (experiment tracking)
+      - wandb==0.27.2
+
+# ---------------------------------------------------------------------
+# Installing PyTorch (deliberately NOT pinned above)
+# ---------------------------------------------------------------------
+# torch/torchvision/torchaudio, and the torch_geometric C-extension
+# packages (torch_geometric, torch_scatter, torch_sparse, torch_cluster,
+# torch_spline_conv, pyg_lib -- needed for GROVER/grover3400's graph
+# featurization), are CUDA-build-specific: the right wheel depends on your
+# cluster's CUDA version, which this file can't know in advance. Installing
+# the wrong build silently falls back to CPU or fails to import.
+#
+# The real working env here uses these EXACT versions, for CUDA 12.1
+# (torch's own bundled nvidia_*_cu12 pip packages, not a system CUDA
+# toolkit) -- if your cluster also has CUDA 12.1 GPUs, this is a working,
+# copy-pasteable example, not a guess:
+#   pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121
+#   pip install torch-geometric==2.8.0
+#   pip install torch_scatter==2.1.2 torch_sparse==0.6.18 torch_cluster==1.6.3 torch_spline_conv==1.2.2 pyg_lib==0.4.0 \
+#       -f https://data.pyg.org/whl/torch-2.3.1+cu121.html
+#
+# If your cluster's CUDA version differs: pick your torch build at
+# https://pytorch.org/get-started/locally/ first, then substitute your
+# torch+CUDA combination into the `-f https://data.pyg.org/whl/torch-...`
+# URL above for the torch_geometric extension packages (see
+# ibm_materials/models/pos_egnn/requirements.txt for another real example
+# of this same -f wheel-index pattern, pinned to a different torch/CUDA
+# combination).
+#
+# Verify both steps worked before doing anything real-scale:
+#   python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+#   python -c "import torch_geometric; print(torch_geometric.__version__)"
+
+# ---------------------------------------------------------------------
+# Uni-Mol v1's legacy `grover` (1600-d, muben-based) backbone only
+# ---------------------------------------------------------------------
+# Not needed for grover3400/molformer/smited/mhgged/unimol/unimol2 --
+# skip this entirely unless you specifically need the older 1600-d
+# muben-based fingerprint (use grover3400 for new extraction instead, see
+# embed/README.md).
+#
+# `unicore` (dptech-corp's Uni-Core, muben's dependency) is NOT a normal
+# PyPI package -- `pip install unicore` will not get you the right thing.
+# It has to be built from source:
+#   git clone https://github.com/dptech-corp/Uni-Core
+#   cd Uni-Core && pip install -e .
+
+# ---------------------------------------------------------------------
+# Extra installs, ONLY if wiring in a new ibm_materials model
+# ---------------------------------------------------------------------
+# Not needed for any already-wired backbone (grover3400, molformer,
+# smited, mhgged, unimol, unimol2) -- confirmed absent from the real
+# working env above, since nothing currently wired needs them:
+#   pip install selfies          # needed by selfies_ted
+#   pip install ase torch_nl     # needed by pos_egnn (also needs the
+#                                 # torch_geometric stack above)

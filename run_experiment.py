@@ -29,6 +29,7 @@ directly (this file runs exactly one config per invocation).
 
 import argparse
 import json
+import mmap
 import os
 import pickle
 import time
@@ -114,6 +115,23 @@ DATASETS = {
         # cause of, just spreads the same access pattern across 28 OSTs
         # instead of 1. The original embeddings/ is left on disk, untouched.
         "embed_dir": AMPC_ROOT / "embeddings_striped",
+    },
+    "AmpC_dedup": {
+        # Deduplicated copy of AmpC's pool: dropped 970,211/99,459,561 rows
+        # whose SMILES also occur elsewhere in the pool (last-occurrence
+        # kept, matching load_oracle()/smi2idx's own last-write-wins
+        # semantics -- see embed/stitch/build_dedup_mask.py). Built after
+        # discovering ~957,702 of those duplicates (98.7% of all of them)
+        # are concentrated in shard 7 alone (7.7% of its rows), which is
+        # what was actually driving shard 7's chronic worker hangs, not a
+        # node/hardware issue -- see molpal/models/mvemodels.py's
+        # EmbeddingMVEModel._get_X() for the (separately fixed) indexing
+        # bug that made those duplicate-heavy chunks slow. Every one of the
+        # 98,489,350 kept rows verified bit-identical to its corresponding
+        # row in the original embeddings_striped/ set (2026-09-11).
+        "library": AMPC_ROOT / "dedup" / "ampc_smiles.txt",
+        "oracle": AMPC_ROOT / "dedup" / "ampc_scores.csv.gz",
+        "embed_dir": AMPC_ROOT / "dedup",
     },
 }
 
@@ -576,30 +594,101 @@ class ParallelMVEExplorer(MVEExplorer):
         EmbeddingMVEModel.__init__) -- no smi2idx round-trip needed here."""
         new_idx = sorted(i for i in idx_list if i not in self._emb_cache)
         if new_idx:
-            # Bounded, chunked fetch -- NOT for correctness (fancy-indexing
-            # the whole list at once would give the same result), but for
-            # visibility and blast-radius. A single fancy-index call over
-            # the WHOLE (cold-cache, genuinely-scattered, AL-acquired)
-            # labeled set gave zero progress signal -- on a --resume restart
-            # this sat with no log output and no checkpoint write for 2+
-            # hours (2026-08-15, job 9972734), indistinguishable from a hang
-            # vs. just slow, on the same single-OST/unstriped embedding
-            # files that have hung on shard 7 all session. Chunking doesn't
-            # remove the scattered-read risk itself, but bounds it: a stall
-            # now shows which range it's stuck on instead of one opaque
-            # multi-hour silence.
-            CHUNK = 20_000
+            # Sequential streaming pass per backbone, NOT scattered
+            # fancy-indexing (`emb[new_idx]`). new_idx is a uniformly
+            # random subset of a 99M+-row pool (random init draw, or
+            # AL-acquired top-k -- neither is chunk-local), so at any
+            # useful block size almost every block contains at least one
+            # wanted row: there is no "skip most of the file" shortcut
+            # available here, the wanted rows are spread across virtually
+            # the whole array regardless of how it's sliced. The win is
+            # purely access pattern: reading the array in large sequential
+            # blocks (a handful of big contiguous reads/backbone) instead
+            # of one point-read per wanted row is dramatically faster on
+            # Lustre, where scattered small random reads are latency-bound
+            # (measured: ~270ms/row aggregate across 5 backbones this way,
+            # e.g. ~87 minutes for round 1's 99,460-row init batch) while
+            # large sequential reads run at near-full striped throughput.
+            # Correctness: every wanted row still gets read exactly once,
+            # just via a streaming two-pointer walk (both new_idx and the
+            # block boundaries are monotonically increasing) rather than a
+            # random-access gather.
+            READ_BLOCK = 200_000  # rows/block; ~2.7GB for grover3400 (widest backbone) -- bounds peak memory
             n_new = len(new_idx)
             t0 = time.perf_counter()
-            for start in range(0, n_new, CHUNK):
-                chunk_idx = new_idx[start : start + CHUNK]
-                parts = [emb[chunk_idx] for emb in self.model.emb_dict.values()]
-                chunk_rows = np.concatenate(parts, axis=1)
-                for row, i in zip(chunk_rows, chunk_idx):
-                    self._emb_cache[i] = row
-                done = min(start + CHUNK, n_new)
-                print(f"  [emb-cache] fetched {done:,}/{n_new:,} new rows "
+            rows_by_idx: dict = {i: [] for i in new_idx}
+            page_size = mmap.PAGESIZE
+            for name, emb in self.model.emb_dict.items():
+                n_total, dim = emb.shape
+                # A reused, pre-allocated buffer -- NOT np.array(emb[a:b]) fresh
+                # each iteration -- so this loop's own anonymous-memory footprint
+                # is fixed at one block's size, never accumulating.
+                buf = np.empty((min(READ_BLOCK, n_total), dim), dtype=emb.dtype)
+                is_memmap = isinstance(emb, np.memmap)
+                row_bytes = dim * emb.dtype.itemsize
+                ptr = 0
+                blocks_read = 0
+                for block_start in range(0, n_total, READ_BLOCK):
+                    if ptr >= n_new:
+                        break  # every wanted row already found -- rest of the file is unneeded
+                    block_end = min(block_start + READ_BLOCK, n_total)
+                    if new_idx[ptr] >= block_end:
+                        continue  # no wanted row in this block -- skip without reading it
+                    n_rows = block_end - block_start
+                    # buf[:n_rows] = ... forces a REAL copy from the memmap (a
+                    # bare np.asarray(emb[a:b]) does NOT: it returns a view still
+                    # backed by the memmap -- OWNDATA=False -- silently deferring
+                    # the actual disk read to whatever touches it later. That was
+                    # a real bug here: every page-fault ended up happening one row
+                    # at a time inside the np.concatenate() loop after this one --
+                    # the exact scattered-read cost this function exists to avoid,
+                    # just moved to an unmeasured line, and masked by page-cache
+                    # warmth on the first two real runs (py-spy caught a 2+ hour
+                    # stall landed exactly on that concatenate line, 2026-09-13).
+                    buf[:n_rows] = emb[block_start:block_end]
+                    blocks_read += 1
+                    # Release this block's pages from the process's resident set
+                    # now that the data we need is copied out. Reading through a
+                    # memmap (even into a reused buffer -- the copy above doesn't
+                    # help here) still leaves the touched FILE-BACKED pages mapped
+                    # and counted in RSS: Linux only reclaims clean mmap'd pages
+                    # under real memory pressure, not proactively, so a full
+                    # sequential scan of a huge file (unavoidable at this ~0.1%
+                    # density -- virtually every block has a wanted row, so
+                    # nothing gets skipped) drove RSS to the FULL file size before
+                    # this call was added -- OOM-killed a real run at --mem=160G
+                    # (2026-09-13, ~1.35TB grover3400 file). madvise(DONTNEED)
+                    # tells the kernel these pages are safe to drop immediately;
+                    # confirmed directly this bounds peak RSS to ~one block
+                    # (~5.3GB measured) instead of the whole file (~40.8GB) on an
+                    # isolated test of the same pattern.
+                    if is_memmap:
+                        byte_start = emb.offset + block_start * row_bytes
+                        byte_end = emb.offset + block_end * row_bytes
+                        aligned_start = (byte_start // page_size) * page_size
+                        emb._mmap.madvise(mmap.MADV_DONTNEED, aligned_start, byte_end - aligned_start)
+                    local_offsets, wanted_global = [], []
+                    while ptr < n_new and new_idx[ptr] < block_end:
+                        i = new_idx[ptr]
+                        local_offsets.append(i - block_start)
+                        wanted_global.append(i)
+                        ptr += 1
+                    if local_offsets:
+                        # ONE fancy-index call, not a per-row basic-index append:
+                        # basic indexing (buf[k]) returns a VIEW whose .base keeps
+                        # the WHOLE buf alive for as long as that one row survives
+                        # in rows_by_idx -- harmless with a single reused buffer
+                        # (it's meant to stay alive), but fancy-indexing also
+                        # produces its own small, independent array, which is what
+                        # we actually want retained long-term in rows_by_idx.
+                        extracted = buf[:n_rows][local_offsets]
+                        for k, i in enumerate(wanted_global):
+                            rows_by_idx[i].append(extracted[k])
+                print(f"  [emb-cache] streamed {name}: {ptr:,}/{n_new:,} rows found "
+                      f"via {blocks_read} sequential block reads "
                       f"({time.perf_counter() - t0:.1f}s elapsed)")
+            for i in new_idx:
+                self._emb_cache[i] = np.concatenate(rows_by_idx[i])
             self._snapshot_emb_cache()
         return np.stack([self._emb_cache[i] for i in idx_list])
 

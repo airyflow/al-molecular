@@ -76,6 +76,20 @@ class EmbeddingMVEModel(Model):
         # single-OST (unstriped, lfs getstripe-confirmed) embedding file,
         # while a contiguous slice of the identical byte range was
         # near-instant.
+        #
+        # NO percentage threshold gating this anymore (a previous version
+        # fell back to a full scatter of every idx once mismatches reached
+        # 5%) -- that was backwards. Patching is a superset-or-equal
+        # improvement over a full scatter at EVERY mismatch fraction below
+        # 100%: it does the exact same scattered fancy-index work (over
+        # just the mismatched subset, which is <= a full scatter's set) plus
+        # one extra cheap sequential slice read. There is no mismatch
+        # fraction where jumping to a full scatter of ALL idxs is actually
+        # faster, so the 5% cutoff was only ever making shard 7 (whose
+        # duplicate-driven mismatch rate is high enough to regularly cross
+        # whatever threshold is chosen) hit the slow path it was explicitly
+        # designed to avoid. Only skip the (then-wasted) contiguous read
+        # when literally every position is mismatched.
         n = len(idxs)
         if n == 0:
             parts = [emb[idxs] for emb in self.emb_dict.values()]
@@ -85,7 +99,7 @@ class EmbeddingMVEModel(Model):
             if not mismatches:
                 sl = slice(base, base + n)
                 parts = [emb[sl] for emb in self.emb_dict.values()]
-            elif len(mismatches) < max(1, n // 20):  # < 5% mismatched -- patch, don't fully fancy-index
+            elif len(mismatches) < n:  # at least one row still lines up -- patch beats a full scatter
                 sl = slice(base, base + n)
                 correct_idxs = [idxs[i] for i in mismatches]
                 parts = []
@@ -93,7 +107,7 @@ class EmbeddingMVEModel(Model):
                     block = np.array(emb[sl])  # materialize so rows can be overwritten
                     block[mismatches] = emb[correct_idxs]
                     parts.append(block)
-            else:
+            else:  # every single row mismatched -- the contiguous base would be entirely wasted
                 parts = [emb[idxs] for emb in self.emb_dict.values()]
         return np.concatenate(parts, axis=1)  # (n, D_total)
 

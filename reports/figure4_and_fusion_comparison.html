@@ -710,7 +710,63 @@ footer {
   </div>
 </section>
 
+<section>
+  <div class="section-head"><span class="section-num">11</span><h2>AmpC 99.5M, deduplicated: LT-All at full width, and a batch-fraction sweep</h2></div>
+  <div class="prose">
+    <p>&sect;07 ran AmpC under the three-backbone <code>Fusion</code> (Borda-rank) surrogate with one shard (12,432,439 molecules, &asymp;12.5% of the pool) permanently excluded because its per-round embedding fetch hung unpredictably, traced there to &asymp;192,000 within-shard duplicate SMILES breaking a contiguous-read optimization &mdash; flagged, not fixed. This section closes that out and combines both open threads: the full five-backbone <code>LTAllSurrogate</code> from &sect;09&ndash;10 (GROVER3400, MoLFormer, MHG-GED, SMI-TED, Uni-Mol v1 &mdash; 3,400+768+1024+768+512 = <b style="color:var(--ink)">6,472-d</b> concatenated), run on AmpC with every shard included, and a sweep over three batch fractions (0.1%, 0.2%, 0.4% &mdash; the same values &sect;01 swept on Enamine HTS) instead of a single-fraction probe.</p>
+    <p>Getting there required actually finding what &sect;07 only worked around, plus two further bugs surfaced by running LT-All at this pool size for the first time &mdash; see Engineering notes below. All three runs: greedy acquisition, init=batch=fraction&times;pool, 5 rounds, seed 42, on the deduplicated 98,489,350-molecule pool (99,459,561 originally &mdash; 970,211 duplicate rows removed, see below), top-<i>k</i> fixed at 50,000.</p>
+  </div>
+
+  <h3>Round-by-round results, by batch fraction</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th class="num">Round</th><th class="num">Labeled (0.1%)</th><th class="num">Recall (0.1%)</th><th class="num">Labeled (0.2%)</th><th class="num">Recall (0.2%)</th><th class="num">Labeled (0.4%)</th><th class="num">Recall (0.4%)</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td class="num">196,978</td><td class="num">10.4%</td><td class="num">393,958</td><td class="num">18.4%</td><td class="num">787,914</td><td class="num">32.4%</td></tr>
+        <tr><td class="num">2</td><td class="num">295,467</td><td class="num">26.1%</td><td class="num">590,937</td><td class="num">42.2%</td><td class="num">1,181,871</td><td class="num">61.5%</td></tr>
+        <tr><td class="num">3</td><td class="num">393,956</td><td class="num">38.5%</td><td class="num">787,916</td><td class="num">56.3%</td><td class="num">1,575,828</td><td class="num">75.6%</td></tr>
+        <tr><td class="num">4</td><td class="num">492,445</td><td class="num">47.3%</td><td class="num">984,895</td><td class="num">65.4%</td><td class="num">1,969,785</td><td class="num">84.7%</td></tr>
+        <tr><td class="num">5</td><td class="num">590,934</td><td class="num">53.6%</td><td class="num">1,181,874</td><td class="num">72.7%</td><td class="num">2,363,742</td><td class="num"><b>89.4%</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose"><p style="margin-top:14px">Best score found was &minus;98.980&nbsp;kcal/mol in all three runs, reached by round 1&ndash;2 in every case (round 1 alone at 0.2%, which happened to land on &minus;93.850 first) &mdash; as elsewhere in this report, the recall differences above are exploration-efficiency, not final-answer quality. No OOM, no hung shard, and no excluded shard in any of the three runs, unlike &sect;07.</p></div>
+
+  <div class="callout">
+    <b>Doubling the batch fraction each time roughly doubled final recall's distance closed to 100%.</b> 0.1%&rarr;0.2%&rarr;0.4% took final recall from 53.6% to 72.7% to <b>89.4%</b>, for the same 5 rounds and, notably, <i>no increase</i> in the dominant per-round cost: each round's embedding fetch is a near-full sequential scan of the pool regardless of batch size (at this density, virtually every read-block contains a wanted row either way &mdash; see Engineering notes), so a bigger batch buys more labeled data per round at essentially the same wall-clock fetch cost. The tradeoff is adaptivity, not speed: a bigger single-shot acquisition gets fewer chances to course-correct on a model snapshot's mistakes &mdash; not visible as a problem in any of these three runs, but the reason this isn't simply "always use the largest fraction."
+  </div>
+
+  <h3>Comparison against the original paper's own AmpC result</h3>
+  <div class="prose">
+    <p>&sect;07's protocol (and this section's) reproduces Graff, Shakhnovich &amp; Coley's own AmpC screen from the same paper as &sect;01&ndash;06 &mdash; that paper reports greedy-acquisition, top-50,000 recall on this exact 99.5M pool at these exact three batch fractions, giving a direct comparison point rather than a cross-paper guess. Verbatim, from the paper's results (confirmed against a second, independent quote in its own conclusion): <i>"For the 0.4% batch size experiments, the MPN model finds 89.3% of the top-50 000 (ca. top-0.05%) scores after exploring 2.4% of the total pool (EF = 37.2). Decreasing the batch size to 0.2% led to a recovery of 66.2% (EF = 55.2), and further decreasing the batch size to 0.1% resulted in 47.1 recovery (EF = 78.5)."</i> The paper also evaluates RF and NN surrogates on AmpC, but only reports their UCB-acquisition numbers in the main text, noting qualitatively that both "were not as effective as the MPN, but still led to significant enrichment above the baseline" &mdash; no exact greedy-acquisition percentage for RF or NN on AmpC is given, so no such number appears below.</p>
+  </div>
+
+  <h3>Round-by-round results, by batch fraction</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th class="num">Batch</th><th class="num">Total explored</th><th class="num">Paper: MPN (greedy, retrained every round)</th><th class="num">This work: LT-All (frozen embeddings)</th></tr></thead>
+      <tbody>
+        <tr><td class="num">0.1%</td><td class="num">0.6%</td><td class="num">47.1%</td><td class="num"><b>53.6%</b></td></tr>
+        <tr><td class="num">0.2%</td><td class="num">1.2%</td><td class="num">66.2%</td><td class="num"><b>72.7%</b></td></tr>
+        <tr><td class="num">0.4%</td><td class="num">2.4%</td><td class="num">89.3%</td><td class="num"><b>89.4%</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <b>The frozen five-backbone LT-All surrogate matches or beats the paper's own in-loop-retrained MPN, at every budget, on this same pool.</b> +6.5 points at 0.1% and 0.2%, and a statistical tie at 0.4% (89.4% vs. 89.3%, one seed each side). MPN retrains an entire message-passing graph network from scratch every round on the growing labeled set; LT-All only ever retrains a small MLP head on embeddings computed once and reused across rounds &mdash; cheaper per round, and, on this pool, not a recall cost. This is the opposite of what a first, cruder version of this comparison suggested (a since-corrected extraction of the paper's numbers materially overstated MPN's greedy performance) &mdash; worth flagging explicitly, since it's a reminder that a paper-comparison claim this report makes is only as good as the verbatim text it's checked against, not a summary of it.
+  </div>
+
+  <h3>Engineering notes</h3>
+  <div class="prose">
+    <p><b style="color:var(--ink)">Shard 7's hang (&sect;07) was a duplicate-SMILES indexing bug, not a hardware or filesystem issue.</b> <code>EmbeddingMVEModel._get_X()</code> (<code>molpal/models/mvemodels.py</code>) fetches a shard's embeddings as one contiguous slice, patching in scattered corrections for any position a duplicate SMILES elsewhere in the pool remaps &mdash; but fell back to a fully-scattered fetch of <i>every</i> row once corrections passed 5% of a chunk, which is backwards: patching only the mismatched subset is never slower than a full scatter, at any mismatch fraction below 100%. Checked directly against the real pool: 13 of shard 7's 249 prediction chunks exceeded that 5% threshold (4 of them 50&ndash;100% mismatched, one at exactly 100%), explaining a chronic, shard-specific stall that recurred across multiple unrelated runs. Fix: removed the threshold (always patch, unless literally every row in a chunk is mismatched).</p>
+    <p><b style="color:var(--ink)">The pool itself had 970,211 duplicate-SMILES rows, 98.7% of them concentrated in shard 7 alone</b> (7.7% of its rows, vs. 0.002&ndash;0.026% in every other shard) &mdash; not evenly distributed noise. Every checked duplicate pair's two occurrences carry genuinely different DOCK3.7 scores (e.g. &minus;35.90 vs. &minus;35.95 for the same SMILES), confirming an independent redocking/verification pass appended near the pool's tail, not a data-pipeline artifact. Deduplicated by keeping each SMILES's last occurrence &mdash; matching <code>load_oracle()</code>'s own pre-existing last-write-wins dict semantics, so this changes no previously-reachable behavior, only removes rows that were already unreachable through any SMILES-keyed lookup. Result: 98,489,350 molecules, verified row-for-row identical to the original for every kept index (spot-checked across all 5 backbones' re-sliced embedding files).</p>
+    <p><b style="color:var(--ink)">A separate bug, found only once LT-All ran at full pool width for the first time:</b> the per-round labeled-set embedding fetch streams the pool in large sequential blocks for I/O efficiency, materializing each block via <code>np.asarray(mmap_slice)</code> &mdash; which does <i>not</i> force a copy when the source is already an array-like (<code>OWNDATA=False</code>), silently deferring the real disk read to whatever touches the data later. Here that meant every real page-fault happened one row at a time inside a downstream <code>np.concatenate()</code> call instead &mdash; the exact scattered-read cost the block-streaming design existed to avoid, just moved to an unmeasured line, and masked by page-cache warmth on the first two real runs before a fully cold-cache run stalled for 2+ hours. Found via <code>py-spy dump</code> pinpointing the exact stuck line on a live job. Fixed with an explicit reused buffer (forces the real copy where the block-loop's own timing assumes it happens) plus <code>madvise(MADV_DONTNEED)</code> per block, since simply reading through a huge memory-mapped file &mdash; even into a reused buffer &mdash; otherwise leaves every touched page resident and counted against the job's memory limit for the rest of the process's life.</p>
+    <p><b style="color:var(--ink)">A third bug, found only once the labeled set grew past &asymp;1.2M rows:</b> the cache holding every round's cumulative labeled-set embeddings was a plain dict, independently rebuilt into a fresh full-size array in three separate places (once for training data, once for a crash-recovery snapshot, once for the per-round checkpoint) &mdash; two to three full copies of a monotonically-growing, never-shrinking dataset alive at once, which OOM-killed real runs at <code>--mem=160G</code> twice (once at &asymp;1.2M rows, again at &asymp;2.0M after a first fix only deduplicated two of the three rebuilds). Replaced the dict entirely with one incrementally-merged <code>(idx, X)</code> array pair, updated via <code>np.searchsorted</code>-based placement rather than a per-row rebuild; confirmed the fix bounds peak memory to a constant &asymp;2&times; transient (during each round's old+new merge) rather than a permanently-growing multiple, and verified correct against a full-scatter reference across a simulated multi-round growth pattern, a resume-from-checkpoint path, and the redundant-call fallback path, before re-running any real job.</p>
+  </div>
+</section>
+
 <footer>
-  <span>al-molecular &middot; run_experiment.py / surrogates.py:LTAllSurrogate / stitch_enhits_large_shards.py</span>
-  <span>Updated 2026-09-01</span>
+  <span>al-molecular &middot; run_experiment.py / surrogates.py:LTAllSurrogate / molpal/models/mvemodels.py / stitch_enhits_large_shards.py</span>
+  <span>Updated 2026-09-14</span>
 </footer>

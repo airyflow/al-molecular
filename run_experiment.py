@@ -548,7 +548,22 @@ class ParallelMVEExplorer(MVEExplorer):
         # own _get_X() -- this cache makes each round only pay that cost for
         # the molecules labeled THIS round (a constant ~batch_size rows),
         # not the cumulative total.
-        self._emb_cache: dict = {}
+        # A single incrementally-merged (idx, X) array pair -- NOT a dict of
+        # per-row arrays. A dict version of this cache OOM-killed two real
+        # runs at --mem=160G (2026-09-14): every round rebuilt a FRESH
+        # stacked copy of the entire cumulative cache (in _get_X_cached AND,
+        # separately, in _checkpoint()) while the dict itself ALSO held the
+        # same data as many small arrays -- 2-3 full copies of a
+        # monotonically-growing, never-shrinking dataset, all alive at once.
+        # Here there is exactly ONE steady-state array (self._emb_cache_X);
+        # each round's merge transiently allocates one new array sized for
+        # the round's larger total before the old one is freed, but nothing
+        # is ever kept 2x permanently. self._emb_cache_keys (plain ints, not
+        # embedding data -- trivial memory) exists purely for the O(1)
+        # "already cached?" membership test _get_X_cached needs per row.
+        self._emb_cache_idx: np.ndarray = np.empty(0, dtype=np.int64)
+        self._emb_cache_X: np.ndarray | None = None
+        self._emb_cache_keys: set = set()
         # On a --resume restart, reload whatever embedding rows the PRIOR
         # process already fetched (persisted by _checkpoint() below) instead
         # of re-fetching the entire labeled set from the slow remote memmap.
@@ -577,9 +592,10 @@ class ParallelMVEExplorer(MVEExplorer):
             if cache_path.exists():
                 t0 = time.perf_counter()
                 with np.load(cache_path) as data:
-                    idx_arr, X_arr = data["idx"], data["X"]
-                self._emb_cache = {int(i): row for i, row in zip(idx_arr, X_arr)}
-                print(f"[resume] loaded {len(self._emb_cache):,} cached embedding rows "
+                    self._emb_cache_idx = data["idx"]
+                    self._emb_cache_X = data["X"]
+                self._emb_cache_keys = set(self._emb_cache_idx.tolist())
+                print(f"[resume] loaded {len(self._emb_cache_idx):,} cached embedding rows "
                       f"from {cache_path} ({time.perf_counter() - t0:.1f}s)")
             else:
                 print(f"[resume] no emb_cache.npz found at {cache_path} -- labeled-set "
@@ -587,12 +603,12 @@ class ParallelMVEExplorer(MVEExplorer):
 
     def _get_X_cached(self, idx_list: list) -> np.ndarray:
         """Like EmbeddingMVEModel._get_X(), but only fetches (fancy-indexes
-        into self.model.emb_dict) rows not already in self._emb_cache.
-        idx_list entries are global pool indices, which line up 1:1 with
-        emb_dict's rows because self.model's smi2idx was built by
-        enumerate()-ing the same pool_smiles array MVEExplorer holds (see
-        EmbeddingMVEModel.__init__) -- no smi2idx round-trip needed here."""
-        new_idx = sorted(i for i in idx_list if i not in self._emb_cache)
+        into self.model.emb_dict) rows not already cached. idx_list entries
+        are global pool indices, which line up 1:1 with emb_dict's rows
+        because self.model's smi2idx was built by enumerate()-ing the same
+        pool_smiles array MVEExplorer holds (see EmbeddingMVEModel.__init__)
+        -- no smi2idx round-trip needed here."""
+        new_idx = sorted(i for i in idx_list if i not in self._emb_cache_keys)
         if new_idx:
             # Sequential streaming pass per backbone, NOT scattered
             # fancy-indexing (`emb[new_idx]`). new_idx is a uniformly
@@ -687,20 +703,58 @@ class ParallelMVEExplorer(MVEExplorer):
                 print(f"  [emb-cache] streamed {name}: {ptr:,}/{n_new:,} rows found "
                       f"via {blocks_read} sequential block reads "
                       f"({time.perf_counter() - t0:.1f}s elapsed)")
-            for i in new_idx:
-                self._emb_cache[i] = np.concatenate(rows_by_idx[i])
+            new_idx_arr = np.array(new_idx, dtype=np.int64)
+            new_X = np.stack([np.concatenate(rows_by_idx[i]) for i in new_idx])
+            del rows_by_idx  # each row's small arrays are now duplicated into new_X; drop the originals
+
+            # Merge old (already-cached) + new rows into ONE fresh array, in
+            # sorted-by-global-index order -- NOT a per-row dict rebuild.
+            # idx_list is always exactly sorted(self.labeled_idx) (the one
+            # caller, _train_cached, guarantees this), and old cached indices
+            # are always a subset of it, so merged_idx below always equals
+            # sorted(idx_list); asserted rather than assumed so a future
+            # caller that breaks this invariant fails loudly instead of
+            # silently misaligning rows.
+            merged_idx = np.array(sorted(idx_list), dtype=np.int64)
+            assert merged_idx.tolist() == sorted(self._emb_cache_keys | set(new_idx)), (
+                "idx_list doesn't match the union of already-cached + newly-fetched "
+                "indices -- the merge below assumes every element of idx_list is "
+                "either already cached or was just fetched into new_idx."
+            )
+            dim_total = new_X.shape[1] if self._emb_cache_X is None else self._emb_cache_X.shape[1]
+            merged_X = np.empty((len(merged_idx), dim_total), dtype=np.float32)
+            if self._emb_cache_X is not None and len(self._emb_cache_idx):
+                old_positions = np.searchsorted(merged_idx, self._emb_cache_idx)
+                merged_X[old_positions] = self._emb_cache_X
+            new_positions = np.searchsorted(merged_idx, new_idx_arr)
+            merged_X[new_positions] = new_X
+            del new_X  # copied into merged_X above; the old self._emb_cache_X is dropped by reassignment below
+
+            self._emb_cache_idx = merged_idx
+            self._emb_cache_X = merged_X
+            self._emb_cache_keys = set(merged_idx.tolist())
+
             self._snapshot_emb_cache()
-        return np.stack([self._emb_cache[i] for i in idx_list])
+            return merged_X
+        # idx_list already fully covered by the cache (e.g. a redundant
+        # repeat call) -- self._emb_cache_X is already in idx_list's exact
+        # order per the invariant above, so this is a no-op reuse, not a copy.
+        return self._emb_cache_X
 
     def _snapshot_emb_cache(self) -> None:
         """Opportunistically persists the FULL current cache to a single
         fixed path (overwritten each call, not per-round) right after any
         real fetch -- so an expensive fetch survives a crash in whatever
         comes AFTER it (e.g. training), not just a crash between rounds.
-        See __init__'s resume-loading comment for why this exists."""
+        See __init__'s resume-loading comment for why this exists.
+
+        Reads self._emb_cache_idx/_emb_cache_X directly -- no rebuild, since
+        those ARE the canonical single copy of the cache now (see
+        _get_X_cached, which merges into them incrementally rather than
+        keeping a separate dict this would otherwise have to be stacked
+        from)."""
         t0 = time.perf_counter()
-        idx_arr = np.array(sorted(self._emb_cache.keys()), dtype=np.int64)
-        X_arr = np.stack([self._emb_cache[i] for i in idx_arr])
+        idx_arr, X_arr = self._emb_cache_idx, self._emb_cache_X
         tmp_path = self.run_dir / "emb_cache_latest.npz.tmp"
         final_path = self.run_dir / "emb_cache_latest.npz"
         # np.savez() silently appends ".npz" to any path that doesn't already
@@ -831,11 +885,18 @@ class ParallelMVEExplorer(MVEExplorer):
         # unlike the scattered remote read it exists to let a future resume
         # skip. Written every round (not just incrementally) so resume only
         # ever needs the single latest iter_N/emb_cache.npz, no merging.
-        if self._emb_cache:
+        if self._emb_cache_X is not None:
+            # Reads self._emb_cache_idx/_emb_cache_X directly -- NOT a
+            # rebuild via np.stack over a dict. This used to be a THIRD
+            # independent full materialization of the cumulative cache (on
+            # top of two others inside _get_X_cached, since deduplicated) --
+            # all three alive at different points added up to OOM-killing a
+            # real run at --mem=160G once the labeled set passed ~1.97M rows
+            # (2026-09-14, round 4). There's now exactly one canonical copy
+            # of the cache (see __init__), so this is just a write.
             d = self.run_dir / f"iter_{rnd}"
             t0 = time.perf_counter()
-            idx_arr = np.array(sorted(self._emb_cache.keys()), dtype=np.int64)
-            X_arr = np.stack([self._emb_cache[i] for i in idx_arr])
+            idx_arr, X_arr = self._emb_cache_idx, self._emb_cache_X
             np.savez(d / "emb_cache.npz", idx=idx_arr, X=X_arr)
             print(f"  [checkpoint] saved {len(idx_arr):,} cached embedding rows "
                   f"({time.perf_counter() - t0:.1f}s)")

@@ -766,7 +766,92 @@ footer {
   </div>
 </section>
 
+<section>
+  <div class="section-head"><span class="section-num">12</span><h2>AmpC 99.5M, six backbones: adding Uni-Mol2 to LT-All (greedy)</h2></div>
+  <div class="prose">
+    <p>&sect;11 ran the five-backbone <code>LTAllSurrogate</code> (GROVER3400, MoLFormer, MHG-GED, SMI-TED, Uni-Mol v1 &mdash; 6,472-d concatenated) on the deduplicated 98,489,350-molecule AmpC pool. This section adds Uni-Mol2 (&sect;06) as a sixth backbone &mdash; same deduplicated pool, same <code>keep_mask.npy</code> re-applied to Uni-Mol2's own stitched embeddings (99,459,561&rarr;98,489,350 rows) to keep every backbone row-aligned, concatenated width 3,400+1,024+768+768+512+1,536 = <b style="color:var(--ink)">8,008-d</b>. Same protocol as &sect;11's 0.4% run: greedy acquisition, init=batch=393,957 (0.4%&times;pool), 5 rounds, seed 42, top-<i>k</i> fixed at 50,000.</p>
+  </div>
+
+  <h3>Round-by-round results</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th class="num">Round</th><th class="num">Labeled</th><th class="num">Recall</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td class="num">787,914</td><td class="num">33.9%</td></tr>
+        <tr><td class="num">2</td><td class="num">1,181,871</td><td class="num">62.2%</td></tr>
+        <tr><td class="num">3</td><td class="num">1,575,828</td><td class="num">75.1%</td></tr>
+        <tr><td class="num">4</td><td class="num">1,969,785</td><td class="num">84.1%</td></tr>
+        <tr><td class="num">5</td><td class="num">2,363,742</td><td class="num"><b>89.3%</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose"><p style="margin-top:14px">Best score found was &minus;98.980&nbsp;kcal/mol, same as every other AmpC run in this report, reached already at round 1 &mdash; as in &sect;11, the numbers above are exploration-efficiency, not final-answer quality.</p></div>
+
+  <h3>Five backbones vs. six, and against the paper's MPN</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Surrogate</th><th class="num">Width</th><th class="num">Final recall (0.4% batch)</th></tr></thead>
+      <tbody>
+        <tr><td>Paper: MPN (greedy, retrained every round)</td><td class="num">&mdash;</td><td class="num">89.3%</td></tr>
+        <tr><td>LT-All, 5 backbones (&sect;11)</td><td class="num">6,472-d</td><td class="num">89.4%</td></tr>
+        <tr><td>LT-All, 6 backbones (this section)</td><td class="num">8,008-d</td><td class="num"><b>89.3%</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <b>Adding a sixth frozen backbone left greedy recall unchanged.</b> 89.4%&rarr;89.3% is inside run-to-run noise, not a real regression &mdash; both numbers still match the paper's own in-loop-retrained MPN almost exactly. This is consistent with greedy (mean-only) acquisition already sitting near its ceiling on this pool regardless of how many frozen embedding views feed it: the surrogate only ever needs an accurate <i>point estimate</i> of dock score, and a sixth view doesn't meaningfully sharpen one that five views already got right. One open observation, not yet explained: round-1 recall (pure random init, identical seed and init-size to &sect;11's 0.4% run) came in at 33.9% here vs. 32.4% in &sect;11 &mdash; a small but real shift for a step that shouldn't depend on the backbone list at all, worth tracing before drawing conclusions from any other single-round number in this section.
+  </div>
+
+  <h3>Engineering notes</h3>
+  <div class="prose">
+    <p><b style="color:var(--ink)">A fourth cache-related bug, distinct from &sect;11's three:</b> the per-round checkpoint additionally wrote a full copy of the (already-canonical, already-incrementally-merged) labeled-set embedding cache into <code>iter_N/emb_cache.npz</code> on top of the atomic <code>emb_cache_latest.npz</code> snapshot &mdash; every round, never cleaned up, growing without bound (this run's <code>iter_1..4</code> alone reached &asymp;120GB of exact duplicates). Combined with a separately completed run's own uncapped leftovers, this exceeded the account's 800GB filesystem quota mid-round and killed both this run and a concurrent six-backbone UCB run with <code>OSError: Disk quota exceeded</code>. Fixed by deleting the redundant write entirely: <code>emb_cache_latest.npz</code> is written strictly more often (after every embedding fetch, not just at round-end) and atomically (temp-file-plus-rename), so it already fully superseded the per-round copy as the resume source &mdash; no functionality lost, no further growth.</p>
+    <p><b style="color:var(--ink)">Separately, three of the eight round-5 shard workers had their SLURM allocations killed outright</b> (<code>srun: error: Unable to contact slurm controller (connect failure)</code>, two of the three sharing the same node) mid-round &mdash; a scheduler/node failure, not a code bug. Each was recovered by resubmitting only that array-task index against the same coordination directory; already-completed earlier rounds were detected and skipped, so only the interrupted round's work was redone.</p>
+  </div>
+</section>
+
+<section>
+  <div class="section-head"><span class="section-num">13</span><h2>AmpC 99.5M, UCB acquisition: five backbones, six backbones, and the paper's own number</h2></div>
+  <div class="prose">
+    <p>&sect;11&ndash;12 compared this work's <i>greedy</i> LT-All recall against the paper's own greedy MPN result and found near-parity regardless of backbone count (89.4% at 5 backbones, 89.3% at 6, vs. the paper's 89.3%). This section repeats that comparison for <b style="color:var(--ink)">UCB acquisition</b> &mdash; <code>molpal/acquirer/metrics.py</code>'s <code>ucb(&mu;, &sigma;&sup2;) = &mu; + 2&radic;&sigma;&sup2;</code>, using LTAllSurrogate's own <i>M</i>=5 ensemble-member disagreement as the uncertainty term (&mu;, &sigma;&sup2; already produced every round regardless of acquisition function; UCB was previously exposed but never run against AmpC at this pool/backbone combination). Same protocol as &sect;11&ndash;12 otherwise: 0.4% batch fraction, init=batch=393,957, 5 rounds, seed 42, deduplicated 98,489,350-molecule pool, top-<i>k</i> fixed at 50,000. Round 1's random init draw is identical to the matching greedy run (same seed) &mdash; only round 2 onward diverges, once the acquisition function actually has a model to disagree with itself about.</p>
+  </div>
+
+  <h3>Round-by-round results</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th class="num">Round</th><th class="num">Labeled</th><th class="num">Recall (5 backbones)</th><th class="num">Recall (6 backbones)</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td class="num">787,914</td><td class="num">33.2%</td><td class="num">33.6%</td></tr>
+        <tr><td class="num">2</td><td class="num">1,181,871</td><td class="num">69.5%</td><td class="num">69.1%</td></tr>
+        <tr><td class="num">3</td><td class="num">1,575,828</td><td class="num">83.7%</td><td class="num">83.4%</td></tr>
+        <tr><td class="num">4</td><td class="num">1,969,785</td><td class="num">89.9%</td><td class="num">90.0%</td></tr>
+        <tr><td class="num">5</td><td class="num">2,363,742</td><td class="num">93.4%</td><td class="num"><b>93.6%</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose"><p style="margin-top:14px">Best score found was &minus;98.980&nbsp;kcal/mol in both runs, same as every greedy AmpC run in this report &mdash; again, exploration-efficiency differences, not final-answer quality.</p></div>
+
+  <h3>Against the paper's own UCB result</h3>
+  <div class="prose">
+    <p>Verbatim, from the paper's own results text (Graff, Shakhnovich &amp; Coley 2021, Chemical Science): <i>"The UCB acquisition metric led to notable increases in the performance of the MPN model for all batch sizes, finding 94.8% (EF&nbsp;=&nbsp;39.5), 77.5% (EF&nbsp;=&nbsp;64.6), and 48.7% (EF&nbsp;=&nbsp;81.2) of the top-50&nbsp;000 scores for the 0.4%, 0.2%, and 0.1% batch sizes, respectively."</i> Independently confirmed against a second quote in the paper's own conclusion, naming AmpC explicitly (distinguishing it from the paper's separate, differently-numbered D4-dataset UCB result, which an earlier search-engine summary conflated with AmpC's before this quote was checked verbatim against the primary source): <i>"In the AmpC dataset&hellip; we identify 89.3% of the top-50&nbsp;000 scoring ligands with a 40-fold reduction in the number of docking calculations using a greedy acquisition metric and 94.8% using a UCB acquisition metric."</i></p>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Surrogate</th><th class="num">Width</th><th class="num">Final recall (0.4% batch, UCB)</th></tr></thead>
+      <tbody>
+        <tr><td>Paper: MPN (UCB, retrained every round)</td><td class="num">&mdash;</td><td class="num">94.8%</td></tr>
+        <tr><td>LT-All, 5 backbones (frozen)</td><td class="num">6,472-d</td><td class="num">93.4%</td></tr>
+        <tr><td>LT-All, 6 backbones (frozen)</td><td class="num">8,008-d</td><td class="num"><b>93.6%</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <b>Unlike greedy, UCB leaves a persistent ~1.2&ndash;1.4 point gap to the paper's MPN, and a sixth backbone barely moves it.</b> Greedy matched the paper almost exactly regardless of backbone count (&sect;12); UCB sits a bit below it at both 5 and 6 backbones, and going from 5&rarr;6 backbones closed only 0.2 of that gap (93.4%&rarr;93.6%). One plausible explanation, not confirmed by the paper (which doesn't report an ablation like this): LT-All's ensemble members all see the <i>same</i> frozen concatenated embedding, so their disagreement can only ever reflect random-init/optimization noise on a shared input &mdash; a sixth view gives the downstream MLP heads a richer input, but doesn't change what the ensemble's disagreement is fundamentally measuring. MPN's own ensemble members, in contrast, each learn their own graph-to-property mapping from raw structure, so their disagreement can capture genuine structural extrapolation uncertainty a frozen-embedding ensemble has no mechanism to express, however many frozen views it's given. If this is right, closing the remaining gap needs a change in what the uncertainty term is computed <i>over</i>, not another backbone.
+  </div>
+</section>
+
 <footer>
   <span>al-molecular &middot; run_experiment.py / surrogates.py:LTAllSurrogate / molpal/models/mvemodels.py / stitch_enhits_large_shards.py</span>
-  <span>Updated 2026-09-14</span>
+  <span>Updated 2026-09-17</span>
 </footer>

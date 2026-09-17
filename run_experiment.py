@@ -880,26 +880,21 @@ class ParallelMVEExplorer(MVEExplorer):
 
     def _checkpoint(self, rnd, record):
         super()._checkpoint(rnd, record)
-        # Persist the embedding cache too -- see __init__'s resume-loading
-        # comment. A local sequential write of a few GB is fast/reliable,
-        # unlike the scattered remote read it exists to let a future resume
-        # skip. Written every round (not just incrementally) so resume only
-        # ever needs the single latest iter_N/emb_cache.npz, no merging.
-        if self._emb_cache_X is not None:
-            # Reads self._emb_cache_idx/_emb_cache_X directly -- NOT a
-            # rebuild via np.stack over a dict. This used to be a THIRD
-            # independent full materialization of the cumulative cache (on
-            # top of two others inside _get_X_cached, since deduplicated) --
-            # all three alive at different points added up to OOM-killing a
-            # real run at --mem=160G once the labeled set passed ~1.97M rows
-            # (2026-09-14, round 4). There's now exactly one canonical copy
-            # of the cache (see __init__), so this is just a write.
-            d = self.run_dir / f"iter_{rnd}"
-            t0 = time.perf_counter()
-            idx_arr, X_arr = self._emb_cache_idx, self._emb_cache_X
-            np.savez(d / "emb_cache.npz", idx=idx_arr, X=X_arr)
-            print(f"  [checkpoint] saved {len(idx_arr):,} cached embedding rows "
-                  f"({time.perf_counter() - t0:.1f}s)")
+        # The embedding cache itself is NOT re-persisted here on top of
+        # state.json/scores.pkl -- emb_cache_latest.npz (written by
+        # _snapshot_emb_cache(), atomically, after every _get_X_cached fetch,
+        # not just at round-end) already fully supersedes any per-round copy
+        # as the resume source (see __init__'s resume-loading comment/order).
+        # A per-round iter_N/emb_cache.npz used to be written here too, but
+        # it was pure redundant disk bloat -- an unbounded, ever-growing
+        # duplicate of the SAME cache on every single round, never cleaned
+        # up (2026-09-16: this run's iter_1..4 alone had grown to ~120GB of
+        # exact duplicates before deletion, and combined with a separate
+        # completed run's own uncapped leftovers, blew the account's 800GB
+        # quota mid-round -- OSError: Disk quota exceeded killed both the
+        # UCB and greedy orchestrators). No functionality is lost: resume
+        # never actually fell back to it in practice, since emb_cache_latest.npz
+        # is written strictly more often and atomically.
 
 
 # ==============================================================================

@@ -374,9 +374,15 @@ class MPNN:
     def load(self, path):
         state = json.load(open(path, "r"))
 
-        self.model.load_state_dict(torch.load(state["model_path"]))
+        # map_location="cpu": load_state_dict copies into this model's own
+        # device, so this is safe on GPU workers and also loads a
+        # GPU-saved checkpoint on a CPU-only machine.
+        self.model.load_state_dict(torch.load(state["model_path"], map_location="cpu"))
         try:
-            self.scaler = StandardScaler(state["means"], state["stds"])
+            # state.json stores these as plain lists; predict() does
+            # arithmetic on them (stds**2), so they must be arrays -- as
+            # they are when the scaler comes from train() instead of load().
+            self.scaler = StandardScaler(np.array(state["means"]), np.array(state["stds"]))
         except KeyError:
             pass
 

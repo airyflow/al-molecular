@@ -94,8 +94,23 @@ def _fit_or_load_pca(backbone: str, dim: int, n_components, embeddings_path: str
     if emb.shape[1] != dim:
         raise SystemExit(f"{embeddings_path} has shape {emb.shape}, expected (*, {dim}) -- check --dim")
 
-    print(f"[{backbone}] sampling {min(n_sample, n_total):,}/{n_total:,} rows for PCA fit (seed={seed})")
-    sample = _sample_rows(emb, n_total, dim, n_sample, seed)
+    # scipy's LAPACK-backed full SVD (linalg.svd -> gesdd) hits an integer
+    # overflow ("Indexing a matrix of N elements would incur an integer
+    # overflow in LAPACK") somewhere between 1.536B elements (unimol2's
+    # 1,000,000 x 1,536 sample -- fit fine) and 3.4B (grover3400's
+    # 1,000,000 x 3,400 sample -- crashed immediately on fit, 2026-09-17).
+    # Capped here at a conservative 1.5B-element budget, comfortably under
+    # that boundary for every backbone's dim, rather than requiring a
+    # per-backbone --n-sample override to dodge a failure mode that's
+    # invisible until it's hit.
+    MAX_SAMPLE_ELEMENTS = 1_500_000_000
+    effective_n_sample = min(n_sample, MAX_SAMPLE_ELEMENTS // dim)
+    if effective_n_sample < n_sample:
+        print(f"[{backbone}] capping sample to {effective_n_sample:,} rows (from {n_sample:,}) -- "
+              f"dim={dim} would otherwise risk a LAPACK integer-overflow crash during the full-SVD fit")
+
+    print(f"[{backbone}] sampling {min(effective_n_sample, n_total):,}/{n_total:,} rows for PCA fit (seed={seed})")
+    sample = _sample_rows(emb, n_total, dim, effective_n_sample, seed)
 
     print(f"[{backbone}] fitting PCA (n_components={n_components}) on sample shape {sample.shape}")
     t0 = time.perf_counter()

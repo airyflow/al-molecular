@@ -851,7 +851,112 @@ footer {
   </div>
 </section>
 
+<section>
+  <div class="section-head"><span class="section-num">14</span><h2>AmpC 99.5M, PCA-reduced embeddings: does cutting the fused width cost recall?</h2></div>
+  <div class="prose">
+    <p>&sect;11&ndash;13's raw concatenated embeddings are wide (6,472-d at 5 backbones, 8,008-d at 6) and directly responsible for several of this report's own engineering incidents &mdash; the labeled-set embedding cache's <code>--mem</code> budget, the disk-quota exhaustion from redundant per-round checkpoints, all scale with this width. This section asks whether that width is actually buying anything: per-backbone PCA (fit on a 1M-row random sample of the deduplicated pool, 95% variance retained, full pool then transformed through the fit projection) reduces every backbone independently, then LT-All is re-run identically to &sect;11&ndash;12 (frac=0.4%, greedy, 5 rounds, seed 42) against the reduced embeddings instead of the raw ones. Same pool, same library/oracle, same protocol &mdash; only <code>embed_dir</code> differs (a new <code>AmpC_dedup_pca</code> dataset entry, embeddings produced by <code>embed/stitch/pca_reduce_embeddings.py</code>, now living in the separate <code>al-embed</code> repo this session's later work split off from <code>al-molecular</code>).</p>
+  </div>
+
+  <h3>Per-backbone reduction (95% variance retained)</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Backbone</th><th class="num">Original dim</th><th class="num">Reduced dim</th><th class="num">Reduction</th></tr></thead>
+      <tbody>
+        <tr><td>grover3400</td><td class="num">3,400</td><td class="num">32</td><td class="num">106&times;</td></tr>
+        <tr><td>mhgged</td><td class="num">1,024</td><td class="num">88</td><td class="num">11.6&times;</td></tr>
+        <tr><td>molformer</td><td class="num">768</td><td class="num">271</td><td class="num">2.8&times;</td></tr>
+        <tr><td>smited</td><td class="num">768</td><td class="num">148</td><td class="num">5.2&times;</td></tr>
+        <tr><td>unimol</td><td class="num">512</td><td class="num">114</td><td class="num">4.5&times;</td></tr>
+        <tr><td>unimol2</td><td class="num">1,536</td><td class="num">652</td><td class="num">2.4&times;</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose"><p style="margin-top:14px">Reduction ratios vary enormously by backbone &mdash; grover3400's fingerprint-style features compress 106&times; (heavily redundant bits), while unimol2's compress only 2.4&times; (closer to genuinely high intrinsic dimensionality). Combined fused width: <b style="color:var(--ink)">6,472-d&rarr;653-d</b> at 5 backbones, <b style="color:var(--ink)">8,008-d&rarr;1,305-d</b> at 6 &mdash; a 9.9&times; and 6.1&times; reduction respectively.</p></div>
+
+  <h3>Round-by-round results</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th class="num">Round</th><th class="num">Labeled</th><th class="num">Recall (5bb, PCA)</th><th class="num">Recall (6bb, PCA)</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td class="num">787,914</td><td class="num">31.7%</td><td class="num">32.4%</td></tr>
+        <tr><td class="num">2</td><td class="num">1,181,871</td><td class="num">60.5%</td><td class="num">60.1%</td></tr>
+        <tr><td class="num">3</td><td class="num">1,575,828</td><td class="num">74.5%</td><td class="num">74.1%</td></tr>
+        <tr><td class="num">4</td><td class="num">1,969,785</td><td class="num">83.4%</td><td class="num">83.5%</td></tr>
+        <tr><td class="num">5</td><td class="num">2,363,742</td><td class="num"><b>89.1%</b></td><td class="num"><b>89.2%</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Against the raw (un-reduced) embeddings</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Embeddings</th><th class="num">Fused width</th><th class="num">Final recall (0.4% batch, greedy)</th><th class="num">&Delta; vs. raw</th></tr></thead>
+      <tbody>
+        <tr><td>Raw, 5 backbones (&sect;11)</td><td class="num">6,472-d</td><td class="num">89.4%</td><td class="num">&mdash;</td></tr>
+        <tr><td>PCA, 5 backbones</td><td class="num">653-d</td><td class="num">89.1%</td><td class="num">&minus;0.3</td></tr>
+        <tr><td>Raw, 6 backbones (&sect;12)</td><td class="num">8,008-d</td><td class="num">89.3%</td><td class="num">&mdash;</td></tr>
+        <tr><td>PCA, 6 backbones</td><td class="num">1,305-d</td><td class="num">89.2%</td><td class="num">&minus;0.1</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <b>PCA reduction costs under 0.3 points of recall while cutting the fused width 5.6&ndash;9.9&times;, and rounds ran dramatically faster.</b> Both PCA runs' embedding-cache streaming and MLP training completed in minutes per round rather than the raw runs' ~55&ndash;65 minutes &mdash; e.g. the 6-backbone PCA run's round 2 finished in 1,215.5s total vs. the raw run's comparable per-round cost of nearly an hour. Combined with a proportionally smaller labeled-set embedding cache (the direct cause of this report's own <code>--mem</code>/disk-quota incidents at full width), this is close to a free efficiency win: the same recall, a fraction of the memory, and much shorter wall-clock per round. The greedy result alone says nothing about UCB, so the UCB variant was run too &mdash; see the next subsection.
+  </div>
+
+  <h3>Under UCB acquisition</h3>
+  <div class="prose"><p>The same PCA-reduced embeddings, re-run under <code>--acq ucb</code> (otherwise the same protocol as &sect;13: frac=0.4%, 5 rounds, seed 42), against &sect;13's raw-embedding UCB results.</p></div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th class="num">Round</th><th class="num">Labeled</th><th class="num">5bb raw</th><th class="num">5bb PCA</th><th class="num">6bb raw</th><th class="num">6bb PCA</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td class="num">787,914</td><td class="num">33.2%</td><td class="num">32.7%</td><td class="num">33.6%</td><td class="num">34.0%</td></tr>
+        <tr><td class="num">2</td><td class="num">1,181,871</td><td class="num">69.5%</td><td class="num">66.8%</td><td class="num">69.1%</td><td class="num">67.0%</td></tr>
+        <tr><td class="num">3</td><td class="num">1,575,828</td><td class="num">83.7%</td><td class="num">82.8%</td><td class="num">83.4%</td><td class="num">82.5%</td></tr>
+        <tr><td class="num">4</td><td class="num">1,969,785</td><td class="num">89.9%</td><td class="num">89.4%</td><td class="num">90.0%</td><td class="num">89.4%</td></tr>
+        <tr><td class="num">5</td><td class="num">2,363,742</td><td class="num">93.4%</td><td class="num"><b>93.1%</b></td><td class="num">93.6%</td><td class="num"><b>93.1%</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose"><p style="margin-top:14px">Final recall is 0.3 points below raw at 5 backbones and 0.5 below at 6, against the paper's MPN at 94.8%, so PCA does not close the UCB gap and costs a little. The PCA runs trail raw by about 2&ndash;3 points at round 2 and the gap shrinks every round after that (to 0.5&ndash;0.6 points by round 4), the same pattern the greedy runs showed. With one seed per configuration, differences of a few tenths of a point should not be over-read; what the data supports is that PCA lands within about half a point of raw under UCB as well as greedy, and does not help the paper gap.</p></div>
+
+  <h3>Engineering notes</h3>
+  <div class="prose">
+    <p><b style="color:var(--ink)">A genuine LAPACK integer-overflow bug, hit only at grover3400's scale:</b> fitting sklearn's <code>PCA(svd_solver="full")</code> on a 1,000,000&times;3,400 sample (3.4 billion elements) crashed immediately with <code>ValueError: Indexing a matrix of 3400000000 elements would incur an integer overflow in LAPACK</code> &mdash; every other backbone's sample (largest: unimol2's 1,000,000&times;1,536, 1.536 billion elements) fit without issue, bracketing the real limit somewhere between those two sizes. Fixed by capping the sample size per backbone to keep total elements under a conservative 1.5-billion budget (grover3400's cap: 441,176 rows) rather than requiring a per-backbone <code>--n-sample</code> override to dodge a failure mode that's invisible until it's hit. A second, unrelated bug fixed in the same pass: <code>svd_solver="randomized"</code> (the original default) doesn't support a variance-threshold float <code>n_components</code> at all, only a fixed integer width &mdash; also only surfaced once a real run actually tried it.</p>
+    <p><b style="color:var(--ink)">The 5-backbone PCA run OOM-killed at round 4</b> under an initial <code>--mem=96G</code>, sized by scaling only the labeled-set embedding cache down with PCA's narrower widths. That undercounted a fixed, embedding-width-<i>independent</i> cost: the oracle dict (SMILES&rarr;docking-score, for the whole pool) is roughly 24GB regardless of how wide the embeddings are, and doesn't shrink with PCA at all. Fixed by matching the 6-backbone run's own (already-generous) 128G budget rather than re-deriving a tighter number from a memory model that had already missed one real fixed cost.</p>
+    <p><b style="color:var(--ink)">One shard crashed with a CUDA illegal-instruction error</b> (<code>RuntimeError: CUDA error: an illegal instruction was encountered</code>) during the 6-backbone PCA run's round 1 &mdash; isolated to one node, not a PCA-width issue: the other 7 of 8 shards completed round 1 successfully against the exact same reduced dimensions, confirming the architecture handles the much narrower per-backbone widths (as low as 32-d) correctly, and this was a one-off hardware/driver fault. Resubmitting just that array index (a fresh node) resolved it.</p>
+  </div>
+</section>
+
+<section>
+  <div class="section-head"><span class="section-num">15</span><h2>Reproducing the paper's own MPN at AmpC scale: a sharded pipeline, validated on real hardware</h2></div>
+  <div class="prose">
+    <p>&sect;11&ndash;14 all compare against the paper's <i>reported</i> MPN numbers, never against a from-scratch run of the paper's own MPN surrogate on this pool. The paper's own explorer (<code>MolPALExplorer</code>, single-process, predicts the entire remaining pool in one process every round) was never tested past the 2.1M-molecule EnamineHTS pool and does not scale to AmpC's 98.5M: two timing probes (job 10544431, prediction; job 10545879, training) measured prediction at &asymp;1.7&nbsp;ms/molecule (&asymp;47h for one full-pool pass on a single GPU) and training growing sub-linearly from &asymp;55s/epoch at 4k labeled molecules to &asymp;200s/epoch at 200k &mdash; both far too slow for a single-process, whole-pool-per-round design at this scale.</p>
+    <p>Built a sharded pipeline mirroring &sect;11&ndash;14's LT-All architecture (<code>ParallelMolPALExplorer</code> orchestrator + <code>predict_pool_shard_worker_mpn.py</code> shard workers, same marker-file coordination protocol), with one structural difference: workers are submitted <i>per round</i> rather than as a persistent pool, since MPN training on the orchestrator runs for hours (up to an extrapolated &asymp;15h in AmpC's final round) &mdash; a persistent worker pool would hold its GPUs idle through every training phase. Workers read only their shard's raw SMILES directly from the library file (the MPN featurizes SMILES itself, unlike LT-All's precomputed embeddings).</p>
+    <p>Verified end-to-end on a synthetic 2,000-molecule CPU toy dataset before spending any GPU time, which caught two real, previously-undiscovered bugs in the vendored MolPAL code: <code>MPNN.load()</code> passed JSON-decoded <code>means</code>/<code>stds</code> lists straight into <code>StandardScaler</code>, which crashed later in <code>predict()</code>'s <code>stds**2</code> (nothing had ever loaded a saved MPN checkpoint before); and a resumed run's workers would see a stale <code>STOP.marker</code> left by an earlier finished run and exit immediately. Both fixed and re-verified via the toy harness, including a genuine resume scenario, before touching real data.</p>
+  </div>
+
+  <h3>Real-GPU validation run</h3>
+  <div class="prose"><p>One H100 node, orchestrator + 2 shard workers as background processes sharing the GPU, on the first 1,000,000 rows of the AmpC pool (job 10550340): <code>init-size</code>=<code>batch-size</code>=4,000, 2 rounds, greedy, <code>--retrain-from-scratch</code>.</p></div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th class="num">Round</th><th class="num">Labeled</th><th class="num">Best (kcal/mol)</th><th class="num">Top-1,000 recall</th><th class="num">MPN training</th><th class="num">Shard prediction (500k mol. each)</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td class="num">8,000</td><td class="num">&minus;85.850</td><td class="num">0.2%</td><td class="num">2,546.0s</td><td class="num">838.8s / 848.6s</td></tr>
+        <tr><td class="num">2</td><td class="num">12,000</td><td class="num">&minus;85.850</td><td class="num">0.3%</td><td class="num">3,042.1s</td><td class="num">835.3s / 843.6s</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout">
+    <b>Clean run: orchestrator and both workers exited 0, and the round-1 best score is bit-identical to timing probe 10544431's independent 1M-pool run (&minus;85.850 kcal/mol).</b> Both jobs draw the same seed-42 initial 4,000 molecules over an all-scored pool and train the same architecture, so an exact match on round 1 is a strong end-to-end correctness signal, not a coincidence. Measured timings also track the probe extrapolations closely: training 2,546s/3,042s vs. the probes' &asymp;48min-at-this-scale estimate, and shard prediction at &asymp;1.68&nbsp;ms/molecule vs. the probes' measured &asymp;1.7&nbsp;ms/molecule. Total wall time &asymp;2h against an 8h budget.</div>
+
+  <h3>Next step</h3>
+  <div class="prose">
+    <p>Pipeline verified correct and performant on real hardware; not yet run at full AmpC scale. The prepared 5-round, frac=0.004 run (<code>submit_ampc_mpn_parallel_runs_h100single.sh</code> + per-round <code>submit_ampc_mpn_parallel_workers_h100single.sh</code>) is extrapolated at &asymp;46h of orchestrator training (growing from &asymp;4h to &asymp;14.5h per round as the labeled set grows to &asymp;2.4M) plus &asymp;6h/round of 8-worker prediction &mdash; roughly 3&ndash;3.5 days end-to-end, an order of magnitude past anything directly measured so far (largest training set actually timed: 200k molecules, vs. up to &asymp;2.4M in the real run's final round).</p>
+  </div>
+</section>
+
 <footer>
-  <span>al-molecular &middot; run_experiment.py / surrogates.py:LTAllSurrogate / molpal/models/mvemodels.py / stitch_enhits_large_shards.py</span>
-  <span>Updated 2026-09-17</span>
+  <span>al-molecular &middot; run_experiment.py / surrogates.py:LTAllSurrogate / molpal/models/mvemodels.py / stitch_enhits_large_shards.py / al-embed:embed/stitch/pca_reduce_embeddings.py / predict_pool_shard_worker_mpn.py</span>
+  <span>Updated 2026-09-21</span>
 </footer>

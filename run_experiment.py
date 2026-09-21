@@ -133,6 +133,22 @@ DATASETS = {
         "oracle": AMPC_ROOT / "dedup" / "ampc_scores.csv.gz",
         "embed_dir": AMPC_ROOT / "dedup",
     },
+    "AmpC_dedup_pca": {
+        # Same pool/library/oracle as AmpC_dedup (identical molecules, same
+        # row order, same docking scores) -- only embed_dir differs. Each
+        # backbone here is a per-backbone PCA reduction of AmpC_dedup's own
+        # embeddings (embed/stitch/pca_reduce_embeddings.py: fit on a
+        # 1M-row random sample, 95% variance retained, transform the full
+        # pool), NOT a re-extraction -- so this is directly comparable to
+        # AmpC_dedup's own LT-All results at the same frac/acquisition,
+        # isolating the effect of the dimensionality reduction itself.
+        # Per-backbone reduced widths (95% variance): mhgged 1024->88,
+        # molformer 768->271, smited 768->148, unimol 512->114; unimol2 and
+        # grover3400 pending as of 2026-09-17 (see logs/ampc_pca_reduce_*).
+        "library": AMPC_ROOT / "dedup" / "ampc_smiles.txt",
+        "oracle": AMPC_ROOT / "dedup" / "ampc_scores.csv.gz",
+        "embed_dir": AMPC_ROOT / "dedup_pca",
+    },
 }
 
 DATASET = "EnamineHTS"  # overridden by --dataset in main()
@@ -999,6 +1015,178 @@ class MolPALExplorer:
         print(f"\n[done] results -> {self.run_dir}")
 
 
+def build_mpn_model(ncpu: int = 1, length: int = 2048):
+    """The MolPAL MPN (mean-variance-estimation head) exactly as
+    MolPALExplorer builds it -- shared by the parallel orchestrator and its
+    prediction workers so both sides construct an identical architecture."""
+    from molpal.models import model as build_model
+    return build_model(model="mpn", conf_method="mve", input_size=length,
+                        test_batch_size=4096, ncpu=ncpu)
+
+
+class ParallelMolPALExplorer(MolPALExplorer):
+    """MolPALExplorer's loop (MolPAL's own MPN surrogate, retrained each
+    round on all labeled data) with the per-round pool-prediction step
+    delegated to a pool of single-GPU workers (predict_pool_shard_worker_mpn.py)
+    over the same marker-file coord-dir protocol ParallelMVEExplorer uses.
+
+    Why this exists: MolPALExplorer predicts the whole pool in one process
+    every round. Measured at ~1.7 ms/molecule, that is ~47h per pass over
+    AmpC's 98.5M molecules on one GPU -- the only way to a full run is
+    sharding that step. Training stays in this process (single GPU).
+
+    Differences from MolPALExplorer worth knowing:
+      * pool_smiles stays a plain list of the FULL library, with a
+        boolean usable_mask for oracle-scored molecules (np.array of 98M
+        unicode strings would itself be tens of GB); workers shard the
+        same unfiltered library, so gathered predictions line up.
+      * Initial labeled set is drawn exactly as MVEExplorer does (same
+        seed, same usable_mask) so round 1 matches the LT-All runs.
+      * retrain_from_scratch=True (default) reinitializes the MPN every
+        round, matching the paper's "fully retrained from scratch with all
+        acquired data at the beginning of each iteration". MolPALExplorer
+        continues training the previous weights instead (its default).
+      * --resume supported: labeled set restored from iter_N/scores.pkl;
+        exact only with retrain_from_scratch=True, since model weights
+        are not part of the resume state.
+    """
+
+    def __init__(
+        self, pool_smiles, oracle, acq, usable_mask, num_shards, coord_dir,
+        init_size=8417, batch_size=8417, n_rounds=5, topk=1000, run_dir=None,
+        seed=42, ncpu=1, poll_interval=5.0, retrain_from_scratch=True,
+        resume_scores=None, resume_round=0, length=2048,
+    ):
+        # Deliberately does NOT call MolPALExplorer.__init__ (it np.array()s
+        # the pool and draws the init set over unusable molecules too);
+        # sets every attribute the inherited _best/_recall/_checkpoint/
+        # _save_final use.
+        from molpal.acquirer.metrics import get_metric
+
+        self.pool_smiles = pool_smiles
+        self.oracle = oracle
+        self.usable_mask = usable_mask
+        self.batch_size = batch_size
+        self.n_rounds = n_rounds
+        self.topk = topk
+        self.run_dir = Path(run_dir) if run_dir else RUNS_DIR / "molpal_parallel_run"
+        self.run_dir.mkdir(parents=True, exist_ok=True)
+        self._sign = -1.0
+        self.num_shards = num_shards
+        self.coord_dir = Path(coord_dir)
+        self.coord_dir.mkdir(parents=True, exist_ok=True)
+        self.poll_interval = poll_interval
+        self.retrain_from_scratch = retrain_from_scratch
+
+        self.model = build_mpn_model(ncpu=ncpu, length=length)
+        self.acq_fn = get_metric(acq)
+        self.acq_name = acq
+        self.needs_var = acq in ("ucb", "lcb", "thompson", "ts", "ei", "pi")
+        self.true_top_k = true_top_k_set(oracle, topk)
+        self._start_round = resume_round
+        self._resumed_history = []
+
+        if resume_scores is not None:
+            if not retrain_from_scratch:
+                print("[resume] WARNING: retrain_from_scratch=False -- model weights are not "
+                      "checkpointed, so this resume restarts training from fresh weights")
+            self.labeled_scores = dict(resume_scores)
+            wanted = set(self.labeled_scores)
+            smi2idx = {}
+            for i, s in enumerate(pool_smiles):
+                if s in wanted:
+                    smi2idx[s] = i  # last-write-wins, same as MVEExplorer's smi2idx
+            self.labeled_idx = {smi2idx[s] for s in wanted if s in smi2idx}
+            for r in range(1, resume_round + 1):
+                state_path = self.run_dir / f"iter_{r}" / "state.json"
+                if state_path.exists():
+                    self._resumed_history.append(json.loads(state_path.read_text()))
+            print(f"[resume] loaded {len(self.labeled_idx):,} labeled molecules from "
+                  f"{self.run_dir}/iter_{resume_round}  best={self._best():.3f} kcal/mol  "
+                  f"resuming at round {resume_round + 1}/{n_rounds}")
+        else:
+            rng = np.random.default_rng(seed)
+            candidate_idx = np.where(usable_mask)[0]
+            init_idx = rng.choice(candidate_idx, init_size, replace=False)
+            self.labeled_idx = set(init_idx.tolist())
+            self.labeled_scores = {pool_smiles[i]: oracle[pool_smiles[i]] for i in init_idx}
+            print(f"[init] {init_size} random molecules  best={self._best():.3f} kcal/mol")
+
+    def _wait_for_shard(self, done_path: Path, r: int, shard_id: int) -> None:
+        waited = 0.0
+        while not done_path.exists():
+            time.sleep(self.poll_interval)
+            waited += self.poll_interval
+            if waited % 60 < self.poll_interval:
+                print(f"  [round {r}] still waiting on shard {shard_id} ({waited:.0f}s so far)", flush=True)
+
+    def run(self) -> list:
+        history = list(self._resumed_history)
+        n = len(self.pool_smiles)
+
+        # A previous (finished or interrupted-after-finish) run leaves
+        # STOP.marker behind, and workers exit the moment they see it --
+        # a resumed run must clear it or its workers would leave immediately.
+        stale_stop = self.coord_dir / "STOP.marker"
+        if stale_stop.exists():
+            stale_stop.unlink()
+
+        for rnd in range(self._start_round, self.n_rounds):
+            t0 = time.perf_counter()
+            r = rnd + 1
+
+            idx = sorted(self.labeled_idx)
+            xs = [self.pool_smiles[i] for i in idx]
+            ys = self._sign * np.array([self.labeled_scores[self.pool_smiles[i]] for i in idx], dtype=np.float32)
+            t_train = time.perf_counter()
+            self.model.train(xs, ys, retrain=self.retrain_from_scratch)
+            print(f"  [MPN] trained on {len(idx):,} molecules in {time.perf_counter() - t_train:.1f}s", flush=True)
+
+            # Checkpoint dir (model.pt + state.json incl. target scaler) is
+            # fully written BEFORE the ready marker is touched.
+            self.model.save(self.coord_dir / f"round_{r}_mpn")
+            (self.coord_dir / f"round_{r}_ready.marker").touch()
+
+            mu_parts, var_parts = [], []
+            for shard_id in range(self.num_shards):
+                done_path = self.coord_dir / f"round_{r}_shard_{shard_id}.done"
+                self._wait_for_shard(done_path, r, shard_id)
+                mu_parts.append(np.load(self.coord_dir / f"round_{r}_shard_{shard_id}_mu.npy"))
+                var_parts.append(np.load(self.coord_dir / f"round_{r}_shard_{shard_id}_var.npy"))
+            mu_full = np.concatenate(mu_parts)
+            var_full = np.concatenate(var_parts)
+            assert len(mu_full) == n, f"gathered {len(mu_full):,} predictions but pool has {n:,} molecules"
+
+            mask = self.usable_mask.copy()
+            for i in self.labeled_idx:
+                mask[i] = False
+            pool_idx = np.where(mask)[0]
+            mu, var = mu_full[pool_idx], var_full[pool_idx]
+
+            scores = self.acq_fn(mu, var) if self.needs_var else self.acq_fn(mu)
+            top_local = np.argsort(scores)[::-1][: self.batch_size]
+            selected = pool_idx[top_local]
+
+            for i in selected:
+                smi = self.pool_smiles[i]
+                self.labeled_scores[smi] = self.oracle[smi]
+                self.labeled_idx.add(int(i))
+
+            recall = self._recall()
+            elapsed = time.perf_counter() - t0
+            print(f"  Round {r:02d}/{self.n_rounds}  labeled={len(self.labeled_idx):,}  "
+                  f"best={self._best():.3f} kcal/mol  top-{self.topk} recall={recall:.1%}  ({elapsed:.1f}s)")
+
+            record = dict(round=r, n_labeled=len(self.labeled_idx),
+                          best_score=float(self._best()), topk_recall=float(recall), elapsed=round(elapsed, 2))
+            history.append(record)
+            self._checkpoint(r, record)
+
+        (self.coord_dir / "STOP.marker").touch()
+        self._save_final(history)
+        return history
+
+
 # ==============================================================================
 # CLI
 # ==============================================================================
@@ -1084,6 +1272,11 @@ def parse_args():
                          help="paper uses Atom-pair (pair), not Morgan, for RF/NN/MPN inputs")
     mp_grp.add_argument("--radius", type=int, default=2)
     mp_grp.add_argument("--length", type=int, default=2048)
+    mp_grp.add_argument("--retrain-from-scratch", action=argparse.BooleanOptionalAction, default=True,
+                         help="(--mode molpal --parallel-predict only) reinitialize the MPN every round, "
+                              "as in the paper ('fully retrained from scratch with all acquired data at the "
+                              "beginning of each iteration'). --no-retrain-from-scratch continues training "
+                              "the previous round's weights, as the single-process MolPALExplorer does.")
 
     return p.parse_args()
 
@@ -1166,6 +1359,36 @@ def main():
                 topk=args.topk, run_dir=run_dir, seed=args.seed,
                 surrogate_epochs=args.surrogate_epochs, surrogate_batch=args.surrogate_batch,
             )
+
+    elif args.parallel_predict:
+        if args.model != "mpn":
+            raise SystemExit("--parallel-predict with --mode molpal is only implemented for --model mpn")
+        if args.num_shards is None or args.coord_dir is None:
+            raise SystemExit("--parallel-predict requires both --num-shards and --coord-dir")
+        # Full, unfiltered library + a usable mask -- same reasoning as the
+        # --mode mve --parallel-predict branch above: workers shard the
+        # unfiltered library, so the gathered predictions must cover it.
+        pool_smiles = load_library_smiles(limit=args.pool_limit)
+        usable_mask = np.fromiter((s in oracle for s in pool_smiles), dtype=bool, count=len(pool_smiles))
+        print(f"[pool] {usable_mask.sum():,}/{len(pool_smiles):,} molecules have oracle scores")
+
+        suffix = f"molpal_{args.model}_parallel_{args.acq}_init{args.init_size}"
+        run_dir = Path(args.run_dir) if args.run_dir else RUNS_DIR / suffix
+
+        resume_round, resume_scores = (0, None)
+        if args.resume:
+            resume_round, resume_scores = find_resume_checkpoint(run_dir)
+            if resume_scores is None:
+                print(f"[resume] --resume given but no iter_N checkpoint found under {run_dir} -- starting fresh")
+
+        explorer = ParallelMolPALExplorer(
+            pool_smiles=pool_smiles, oracle=oracle, acq=args.acq, usable_mask=usable_mask,
+            num_shards=args.num_shards, coord_dir=args.coord_dir,
+            init_size=args.init_size, batch_size=args.batch_size, n_rounds=args.n_rounds,
+            topk=args.topk, run_dir=run_dir, seed=args.seed, ncpu=args.ncpu,
+            poll_interval=args.poll_interval, retrain_from_scratch=args.retrain_from_scratch,
+            resume_scores=resume_scores, resume_round=resume_round, length=args.length,
+        )
 
     else:
         pool_smiles = load_library_smiles(limit=args.pool_limit)

@@ -40,7 +40,7 @@ def main():
     print(f"[keep-mask] {n_keep:,}/{len(keep):,} rows kept")
 
     t0 = time.perf_counter()
-    out_smiles = out_dir / "ampc_smiles.txt"
+    out_smiles = out_dir / Path(args.smiles_file).name
     written = 0
     with open(args.smiles_file) as fin, open(out_smiles, "w") as fout:
         for i, line in enumerate(fin):
@@ -51,7 +51,7 @@ def main():
     print(f"[smiles] wrote {written:,} rows -> {out_smiles} ({time.perf_counter()-t0:.1f}s)")
 
     t0 = time.perf_counter()
-    out_scores = out_dir / "ampc_scores.csv.gz"
+    out_scores = out_dir / Path(args.scores_file).name
     written = 0
     with gzip.open(args.scores_file, "rt") as fin, gzip.open(out_scores, "wt") as fout:
         header = fin.readline()

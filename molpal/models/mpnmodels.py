@@ -13,6 +13,7 @@ import numpy as np
 from pytorch_lightning import Trainer as PlTrainer
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
+import os
 import ray
 import torch
 from tqdm import tqdm
@@ -147,16 +148,17 @@ class MPNN:
 
         self.scaler = None
 
-        # This vendored MPNN uses Ray's local object store/remote-function API
-        # (ray.put/ray.get, mpnn.predict_.options(...)) for parallel prediction
-        # even outside the ddp=True distributed-training path; that needs an
-        # initialized local Ray instance, which nothing else in this codebase
-        # sets up. ignore_reinit_error=True makes this safe to call more than
-        # once (e.g. across repeated MPNN() construction within one process).
-        if not ray.is_initialized():
-            ray.init(ignore_reinit_error=True, logging_level="warning")
-
-        ngpu = int(ray.cluster_resources().get("GPU", 0))
+        # GPU count via torch, not Ray: the only two things ray.cluster_resources()
+        # fed were the ddp=True RayTrainer path in train() (dead code -- this repo
+        # never sets ddp=True, single-GPU use only) and predict_old()'s Ray-dispatched
+        # prediction (also dead code -- predict() below always uses _predict_noray).
+        # ray.init() here was pure liability with no functional payoff: every
+        # separate SLURM job in a sharded run (orchestrator + N prediction workers)
+        # independently starting its own local Ray cluster caused repeated
+        # "GCS has become overloaded"/"Failed to connect to GCS" crashes under
+        # real cluster load (2026-09-26, AmpC MPN parallel run), for a
+        # capability this pipeline never actually exercises.
+        ngpu = torch.cuda.device_count()
         self.ngpu = ngpu
         if ngpu > 0:
             self.use_gpu = True
@@ -166,7 +168,7 @@ class MPNN:
         else:
             self.use_gpu = False
             self._predict = mpnn.predict_.options(num_cpus=ncpu)
-            self.num_workers = int(ray.cluster_resources()["CPU"] // self.ncpu)
+            self.num_workers = int((os.cpu_count() or 1) // self.ncpu)
         self._predict_noray = mpnn.predict
 
         self.show_progress_bar = show_progress_bar

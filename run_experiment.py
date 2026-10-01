@@ -71,6 +71,7 @@ RUNS_DIR = Path(os.environ.get("RUNS_DIR") or (ROOT / "runs"))
 RUNS_DIR.mkdir(parents=True, exist_ok=True)
 
 AMPC_ROOT = Path(os.environ.get("AMPC_ROOT", "/N/project/SingleCell_Image/mengjing/ampc_99.5M"))
+D4_ROOT = Path(os.environ.get("D4_ROOT", "/N/project/SingleCell_Image/mengjing/d4_138M"))
 
 # Registry so a second, much larger dataset (AmpC, 99.5M molecules, Figure 5)
 # can share this same driver without EnamineHTS's paths (all under this
@@ -99,6 +100,29 @@ DATASETS = {
         "oracle": DATA_DIR / "EnamineHTS_scores.csv.gz",
         "embed_dir": Path(os.environ.get(
             "ENHITS_LARGE_EMBED_DIR", "/N/project/SingleCell_Image/mengjing/enhits_large/embed"
+        )),
+    },
+    "ENHITS_shuffled": {
+        # Same 2,104,318 molecules/scores as ENHITS, but embeddings +
+        # SMILES rows are permuted by a fixed random shuffle
+        # (embed/stitch/build_shuffle_permutation.py +
+        # embed/stitch/shuffle_embeddings.py) -- built to test whether
+        # ENHITS's paper-matching result (report Section 10) depends on
+        # its embeddings having been extracted directly from
+        # EnamineHTS_scores.csv.gz's own row order, which is sorted by
+        # docking score (verified directly, 2026-09-28) -- a plausible
+        # leakage path if any backbone's extraction uses batch-level
+        # statistics over contiguous file chunks. "oracle" is untouched
+        # (SMILES-keyed, so row order never matters for it); "library"
+        # MUST be the shuffled SMILES file, not the original -- it's used
+        # as EmbeddingFeaturizer's smiles_source fallback for row
+        # alignment, and the embeddings here are in shuffled order.
+        "library": Path(os.environ.get(
+            "ENHITS_SHUFFLED_EMBED_DIR", "/N/project/SingleCell_Image/mengjing/enhits_large/embed_shuffled"
+        )) / "enhits_large_smiles.txt",
+        "oracle": DATA_DIR / "EnamineHTS_scores.csv.gz",
+        "embed_dir": Path(os.environ.get(
+            "ENHITS_SHUFFLED_EMBED_DIR", "/N/project/SingleCell_Image/mengjing/enhits_large/embed_shuffled"
         )),
     },
     "AmpC": {
@@ -148,6 +172,26 @@ DATASETS = {
         "library": AMPC_ROOT / "dedup" / "ampc_smiles.txt",
         "oracle": AMPC_ROOT / "dedup" / "ampc_scores.csv.gz",
         "embed_dir": AMPC_ROOT / "dedup_pca",
+    },
+    "D4_dedup": {
+        # Deduplicated D4 pool, AmpC_dedup's sibling target. Raw d4.csv
+        # (138,312,677 rows, from Yang's Figure-5-source Figshare release,
+        # /N/project/SingleCell_Image/Yang/AI Drug/LargeData/D4/) already
+        # had ~22M rows with an empty dockscore field; d4_enamine_style.csv
+        # is that same release pre-filtered to the 116,241,184 scored-only
+        # rows (verified: header "smiles,score", row i matches d4_smiles.txt
+        # line i exactly). Deduping (embed/stitch/build_dedup_mask.py, same
+        # last-occurrence-kept rule as AmpC's own mask) dropped 15,257/
+        # 116,241,184 duplicate rows -- a far smaller fraction than AmpC's
+        # 970,211/99,459,561, so no equivalent of AmpC's shard-7 concentration
+        # issue is expected here.
+        # embed_dir is populated per-backbone by embed/stitch/dedup_embeddings.py
+        # once that backbone's raw extraction + stitch
+        # (slurm/embed/d4/submit_d4_*_extract.sh, submit_d4_stitch_embeddings.sh)
+        # finishes -- not yet populated as of 2026-09-22.
+        "library": D4_ROOT / "dedup" / "d4_smiles.txt",
+        "oracle": D4_ROOT / "dedup" / "d4_scores.csv.gz",
+        "embed_dir": D4_ROOT / "dedup",
     },
 }
 

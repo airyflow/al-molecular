@@ -708,6 +708,29 @@ footer {
   <div class="callout">
     <b>The gap was the embeddings, not the fusion architecture.</b> Holding architecture, acquisition, pool, budget and the repo's default seed (42, which &sect;09's runs also used) fixed and changing only the embedding source, &sect;09's 81.5% becomes 88.7% &mdash; +7.2 points &mdash; and the 5-seed mean (87.76% &plusmn; 0.84%) is statistically indistinguishable from the paper's 87.54% &plusmn; 0.75%. The round-2 checkpoint still runs &asymp;3 points low (59.3% &plusmn; 3.3% vs. 62.24% &plusmn; 1.91%), now within roughly one combined s.d. rather than &sect;09's &asymp;10-point gap. Which specific difference in the new extraction matters &mdash; GROVER's full vs. projected output, the <code>fm4m</code> Uni-Mol2, canonicalization, pooling &mdash; is not isolated here; several changed together, and the paper's own embeddings still aren't available to diff against. What's settled is that <code>LTAllSurrogate</code>'s architecture and the assumed &tau;/M were never the bottleneck.
   </div>
+
+  <h3 style="margin-top:28px">Order-leakage robustness check: does &sect;10's result depend on the pool being score-sorted?</h3>
+  <div class="prose">
+    <p>A colleague flagged a methodological concern: <code>DATASETS["ENHITS"]</code>'s embeddings are extracted directly from <code>EnamineHTS_scores.csv.gz</code>, which is sorted by docking score &mdash; a cited publication argues that when an active-learning pool is stored in score-sorted order, certain acquisition/indexing bugs can silently inflate reported recall. This is a legitimate thing to check: this pipeline's <b style="color:var(--ink)">other</b> headline dataset, the default <code>"EnamineHTS"</code> used in &sect;02&ndash;09, reads from the unsorted raw catalog and was confirmed (by direct row-content comparison) not to have this property &mdash; but &sect;10's <code>ENHITS</code> genuinely does, so it&rsquo;s the one that needed testing, not assumed innocent.</p>
+    <p>The check: a fixed random permutation (seed 42, <code>build_shuffle_permutation.py</code>) applied identically to all five backbones' embeddings and the SMILES file, de-correlating each molecule's storage position from its score rank while leaving the molecule set and every score unchanged. Same protocol as &sect;10 (<code>LTAllSurrogate</code>, 5-member ensemble, greedy, 0.1% init/batch, 5 rounds, seeds 42&ndash;46) re-run against <code>DATASETS["ENHITS_shuffled"]</code>.</p>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th class="num">Round</th><th class="num">Labeled</th><th class="num">Unshuffled (&sect;10, 5-seed mean &plusmn; s.d.)</th><th class="num">Shuffled (5-seed mean &plusmn; s.d.)</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td class="num">4,208</td><td class="num">25.5% &plusmn; 1.4%</td><td class="num">31.6% &plusmn; 3.7%</td></tr>
+        <tr><td class="num">2</td><td class="num">6,312</td><td class="num">59.3% &plusmn; 3.3%</td><td class="num">63.8% &plusmn; 2.0%</td></tr>
+        <tr><td class="num">3</td><td class="num">8,416</td><td class="num">76.6% &plusmn; 1.3%</td><td class="num">77.1% &plusmn; 1.2%</td></tr>
+        <tr><td class="num">4</td><td class="num">10,520</td><td class="num">83.5% &plusmn; 0.8%</td><td class="num">83.5% &plusmn; 0.5%</td></tr>
+        <tr><td class="num">5</td><td class="num">12,624</td><td class="num"><b>87.76% &plusmn; 0.84%</b></td><td class="num"><b>88.26% &plusmn; 0.25%</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose"><p style="margin-top:14px">Per-seed final recall, shuffled: 87.9 / 88.2 / 88.5 / 88.5 / 88.2% (seeds 42&ndash;46), vs. unshuffled 88.7 / 86.4 / 87.8 / 88.0 / 87.9%. Best score found was the pool's true optimum (&minus;12.700&nbsp;kcal/mol) in every shuffled seed too. Run as a 5-task SLURM array on BigRed200 CPU nodes (<code>submit_ltall_enhits_shuffled_seed_runs_bigred_cpu.sh</code>), not H100&nbsp;&mdash; <code>surrogates.py</code>'s device fallback made this a same-code, CPU-only rerun.</p></div>
+
+  <div class="callout">
+    <b>No order-leakage effect found.</b> Shuffling storage order so it no longer correlates with docking score does not reduce recall &mdash; the shuffled 5-seed mean (88.26% &plusmn; 0.25%) is if anything very slightly <i>higher</i> than the unshuffled mean (87.76% &plusmn; 0.84%), and both are within each other's spread. This rules out the specific concern raised: &sect;10's near-exact match to the paper's 87.54% is not an artifact of <code>ENHITS</code>'s score-sorted storage order. The shuffled runs also show tighter seed-to-seed variance at every round (e.g. round 5: &plusmn;0.25% vs. &plusmn;0.84%), consistent with sorted order being, if anything, a source of extra <i>variance</i> across seeds rather than a source of inflated mean recall.
+  </div>
 </section>
 
 <section>
@@ -926,6 +949,61 @@ footer {
     <p><b style="color:var(--ink)">The 5-backbone PCA run OOM-killed at round 4</b> under an initial <code>--mem=96G</code>, sized by scaling only the labeled-set embedding cache down with PCA's narrower widths. That undercounted a fixed, embedding-width-<i>independent</i> cost: the oracle dict (SMILES&rarr;docking-score, for the whole pool) is roughly 24GB regardless of how wide the embeddings are, and doesn't shrink with PCA at all. Fixed by matching the 6-backbone run's own (already-generous) 128G budget rather than re-deriving a tighter number from a memory model that had already missed one real fixed cost.</p>
     <p><b style="color:var(--ink)">One shard crashed with a CUDA illegal-instruction error</b> (<code>RuntimeError: CUDA error: an illegal instruction was encountered</code>) during the 6-backbone PCA run's round 1 &mdash; isolated to one node, not a PCA-width issue: the other 7 of 8 shards completed round 1 successfully against the exact same reduced dimensions, confirming the architecture handles the much narrower per-backbone widths (as low as 32-d) correctly, and this was a one-off hardware/driver fault. Resubmitting just that array index (a fresh node) resolved it.</p>
   </div>
+
+  <h3>Method, in plain terms</h3>
+  <div class="prose">
+    <p>Think of each embedding backbone as a long survey filled out about a molecule &mdash; grover3400's version has 3,400 questions. A lot of those questions are effectively asking the same thing in different words: if you know the answer to question #12, you can often guess question #47 pretty well, because they tend to move together. PCA reads through a large batch of real answered surveys (about a million molecules' worth, sampled from the pool) and figures out a much shorter set of "summary questions" &mdash; say 32 instead of 3,400 &mdash; that let you reconstruct almost everyone's original answers almost exactly. It then re-scores every molecule in the entire pool using just those summary questions instead of the original long survey. You lose a little detail, but most of that detail was redundant to begin with, so the loss is small and the storage/compute savings are large. Different backbones had different amounts of redundancy to squeeze out &mdash; grover3400 compressed hardest (3,400&rarr;32), molformer had less overlap to remove (768&rarr;271).</p>
+  </div>
+
+  <h3>Scaling past what a single in-memory fit sample can hold</h3>
+  <div class="prose">
+    <p>The LAPACK overflow above is a ceiling on how large a single sample matrix <code>pca_reduce_embeddings.py</code>'s fit step can hand to scipy's exact solver (currently dodged by capping the sample at 1.5B elements, <code>MAX_SAMPLE_ELEMENTS</code>) &mdash; not a fundamental limit on PCA itself. If a future backbone or a much larger fit sample needed to exceed that: <code>sklearn.decomposition.IncrementalPCA</code> processes the fit in small batches (e.g. the same 500k-row blocks already used for the transform pass) and updates a running estimate of the principal directions after each one, rather than decomposing one giant matrix &mdash; every internal decomposition it actually runs stays roughly (batch size + target width) rows, so neither the LAPACK ceiling nor the full-sample memory cost is ever hit, and it could fit on the <i>entire</i> pool rather than a 1M-row sample if exactness mattered more than fit speed. <code>torch.pca_lowrank</code> (ships with PyTorch, already a hard dependency here, and GPU-accelerated on the same H100s this pipeline already uses) is the more natural fit for this specific setup &mdash; a randomized low-rank decomposition that sidesteps the CPU/LAPACK path entirely. The current script's own <code>svd_solver="randomized"</code> option (already used when <code>--n-components</code> is a fixed integer, just not for the 95%-variance-target case that forces the exact <code>"full"</code> solver) would also dodge the overflow with no new dependency at all, at the cost of switching from a variance threshold to a fixed target width per backbone.</p>
+  </div>
+
+  <h3>Step-by-step: how <code>pca_reduce_embeddings.py</code> actually works</h3>
+  <div class="prose">
+    <p><b style="color:var(--ink)">1. Fit pass, figuring out the compression directions.</b> Check for a cached <code>&lt;out-path&gt;.pca_params.npz</code> first &mdash; if present, load the saved <code>components_</code>/<code>mean_</code>/<code>explained_variance_ratio_</code> directly and skip straight to the transform pass (a resumed run never re-fits). Otherwise: cap the sample size (<code>effective_n_sample = min(n_sample, 1.5B // dim)</code>, the LAPACK-overflow fix above), draw that many row indices uniformly at random and sort them, then stream the source file sequentially in 500k-row blocks, pulling out just the sampled rows as each block passes by &mdash; this avoids ever doing a scattered random-access read against the full memmap, the same anti-scattered-read design used throughout this pipeline (<code>dedup_embeddings.py</code>, the ENHITS shuffle scripts). Fit sklearn's <code>PCA</code> on that in-memory sample (solver <code>"randomized"</code> for a fixed integer target width, <code>"full"</code>/exact for a variance-fraction target), then save the fit parameters to the cache file.</p>
+    <p><b style="color:var(--ink)">2. Transform pass, applying it to everyone.</b> Preallocate the output <code>(N, k)</code> file (or resume from the last written row via the same binary-search technique <code>dedup_embeddings.py</code> uses), pull <code>mean_</code>/<code>components_.T</code> out of the sklearn object once, then stream the <i>entire</i> source pool sequentially in 500k-row blocks computing <code>(block &minus; mean_) @ components_.T</code> for each and writing the result out.</p>
+  </div>
+
+  <h3>Other PCA implementations, and what each actually changes</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Method</th><th>What's different</th><th>When it would matter here</th></tr></thead>
+      <tbody>
+        <tr><td>sklearn <code>svd_solver="randomized"</code> (already partly used)</td><td>Halko/Martinsson/Tropp algorithm &mdash; approximates only the top-k directions via random projections + power iteration, instead of the full exact decomposition</td><td>Already used for fixed-width targets; the variance-fraction case still forces <code>"full"</code>, which is exactly what hit the LAPACK bug</td></tr>
+        <tr><td><code>sklearn.decomposition.IncrementalPCA</code></td><td>Fits in small batches via repeated <code>partial_fit()</code> calls &mdash; never holds one big matrix in memory</td><td>Lets the fit use the entire pool instead of a 1M-row sample if exactness ever mattered more than fit speed; structurally immune to the overflow bug</td></tr>
+        <tr><td><code>torch.pca_lowrank</code> / <code>torch.svd_lowrank</code></td><td>GPU-accelerated randomized low-rank decomposition, ships with PyTorch (already a hard dependency)</td><td>Reuses the same H100s already doing embedding extraction; skips the CPU/LAPACK path entirely</td></tr>
+        <tr><td><code>fbpca</code> (Facebook's randomized SVD library)</td><td>A dedicated, often faster/leaner implementation of the same randomized-SVD family</td><td>Worth trying if sklearn's own randomized solver becomes the bottleneck at very large sample sizes</td></tr>
+        <tr><td>Dask-ML <code>dask_ml.decomposition.PCA</code>/<code>TruncatedSVD</code></td><td>True out-of-core / distributed fitting across a cluster</td><td>Only relevant once even the sample doesn't fit in one machine's RAM &mdash; not needed at this pipeline's current scale</td></tr>
+        <tr><td>Random projection (Johnson&ndash;Lindenstrauss), e.g. <code>sklearn.random_projection</code></td><td>Not PCA at all &mdash; a fixed random matrix, no fitting/sample needed, doesn't maximize variance, only approximately preserves pairwise distances</td><td>A categorically cheaper alternative when the 95%-variance-retained guarantee isn't actually needed</td></tr>
+        <tr><td>Autoencoder / learned nonlinear reduction</td><td>A small neural net trained to compress+reconstruct; can capture more structure than a linear method if the embedding manifold is genuinely nonlinear</td><td>The natural next tier up if linear PCA's assumptions ever start costing meaningful recall</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Scaling to 1B&ndash;10B molecules: time and recall</h3>
+  <div class="prose">
+    <p>The fit step's cost is already independent of pool size &mdash; it always samples ~1M rows (or fewer for wide backbones, per the LAPACK cap above), whether the pool is 98.5M, 1B, or 10B molecules. What grows is the <i>transform</i> pass's wall-clock time, since it's a full linear scan over every molecule. Extrapolating linearly from AmpC's own measured per-backbone transform times (98,489,350 molecules):</p>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Backbone</th><th class="num">AmpC time (measured)</th><th class="num">Per-molecule</th><th class="num">1B extrapolated</th><th class="num">10B extrapolated</th></tr></thead>
+      <tbody>
+        <tr><td>mhgged</td><td class="num">9,010s (2.5h)</td><td class="num">91.5&mu;s</td><td class="num">25.4h</td><td class="num">10.6 days</td></tr>
+        <tr><td>molformer</td><td class="num">10,845s (3.0h)</td><td class="num">110.1&mu;s</td><td class="num">30.6h</td><td class="num">12.7 days</td></tr>
+        <tr><td>smited</td><td class="num">8,556s (2.4h)</td><td class="num">86.9&mu;s</td><td class="num">24.1h</td><td class="num">10.1 days</td></tr>
+        <tr><td>unimol2</td><td class="num">27,812s (7.7h)</td><td class="num">282.3&mu;s</td><td class="num">78.4h (3.3d)</td><td class="num">32.7 days</td></tr>
+        <tr><td>grover3400</td><td class="num">47,640s (13.2h)</td><td class="num">483.7&mu;s</td><td class="num">134.3h (5.6d)</td><td class="num"><b>56 days</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose">
+    <p>Backbones already run as separate parallel array tasks at AmpC scale, so real wall-clock time is the <i>max</i> across backbones (grover3400, the slowest), not the sum &mdash; ~5.6 days at 1B, plausible without changes. At 10B, ~56 days for grover3400 alone as a single job is impractical, but the same chunk-based sharding this pipeline already uses everywhere else (embedding extraction, the ENHITS shuffle scripts) applies directly here too: splitting the transform pass across, say, 20 parallel workers brings 56 days down to ~2.8 days, with no new architecture needed.</p>
+  </div>
+  <div class="callout">
+    <b>Recall impact at this scale is genuinely untested, not just unextrapolated.</b> At AmpC scale, PCA cost under 0.3 points of recall with a 1M-row fit sample. Whether that holds at 1B&ndash;10B depends on whether the pool's <i>chemical diversity</i> grows proportionally with molecule count, not on count directly: if a larger pool is drawn from roughly the same underlying chemical distribution as AmpC (more molecules from the same space), a 1M-row sample should still capture the same variance structure and recall cost should stay similarly small. If a 10B-molecule library instead spans a genuinely wider chemical space (more scaffolds, more diverse substructures), a fixed-size sample could under-represent that diversity, and 95%-variance-retained could start discarding real signal &mdash; recall cost could grow, but there is no measured data at any intermediate scale to size this, and it would need an actual empirical test rather than further extrapolation.
+  </div>
 </section>
 
 <section>
@@ -950,13 +1028,43 @@ footer {
   <div class="callout">
     <b>Clean run: orchestrator and both workers exited 0, and the round-1 best score is bit-identical to timing probe 10544431's independent 1M-pool run (&minus;85.850 kcal/mol).</b> Both jobs draw the same seed-42 initial 4,000 molecules over an all-scored pool and train the same architecture, so an exact match on round 1 is a strong end-to-end correctness signal, not a coincidence. Measured timings also track the probe extrapolations closely: training 2,546s/3,042s vs. the probes' &asymp;48min-at-this-scale estimate, and shard prediction at &asymp;1.68&nbsp;ms/molecule vs. the probes' measured &asymp;1.7&nbsp;ms/molecule. Total wall time &asymp;2h against an 8h budget.</div>
 
-  <h3>Next step</h3>
+  <h3>Full-scale run: results</h3>
   <div class="prose">
-    <p>Pipeline verified correct and performant on real hardware; not yet run at full AmpC scale. The prepared 5-round, frac=0.004 run (<code>submit_ampc_mpn_parallel_runs_h100single.sh</code> + per-round <code>submit_ampc_mpn_parallel_workers_h100single.sh</code>) is extrapolated at &asymp;46h of orchestrator training (growing from &asymp;4h to &asymp;14.5h per round as the labeled set grows to &asymp;2.4M) plus &asymp;6h/round of 8-worker prediction &mdash; roughly 3&ndash;3.5 days end-to-end, an order of magnitude past anything directly measured so far (largest training set actually timed: 200k molecules, vs. up to &asymp;2.4M in the real run's final round).</p>
+    <p>The prepared 5-round, frac=0.004 run (<code>submit_ampc_mpn_parallel_runs_h100single.sh</code> + per-round <code>submit_ampc_mpn_parallel_workers_h100single.sh</code>) completed on the full 98,489,350-molecule AmpC pool. One shard (12,432,439 molecules, &asymp;12.5% of the pool, same exclusion as &sect;07/&sect;11's runs) is permanently excluded from candidate selection; see the Engineering notes below for what it took to get here.</p>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th class="num">Round</th><th class="num">Labeled</th><th class="num">Best (kcal/mol)</th><th class="num">Top-50,000 recall</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td class="num">787,914</td><td class="num">&minus;98.980</td><td class="num">30.1%</td></tr>
+        <tr><td class="num">2</td><td class="num">1,181,871</td><td class="num">&minus;98.980</td><td class="num">56.4%</td></tr>
+        <tr><td class="num">3</td><td class="num">1,575,828</td><td class="num">&minus;98.980</td><td class="num">75.0%</td></tr>
+        <tr><td class="num">4</td><td class="num">1,969,785</td><td class="num">&minus;98.980</td><td class="num">84.0%</td></tr>
+        <tr><td class="num">5</td><td class="num">2,363,742</td><td class="num"><b>&minus;98.980</b></td><td class="num"><b>89.5%</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout">
+    <b>Matches the paper's own reported MPN number almost exactly.</b> Graff, Shakhnovich &amp; Coley report <i>"89.3% of the top-50,000 (ca. top-0.05%) scores after exploring 2.4% of the total pool"</i> for the 0.4% batch size, greedy-acquisition MPN run on this exact pool (quoted in full at &sect;11). This run's own MPN &mdash; the paper's actual surrogate, trained from scratch every round on real AmpC-scale data, not LT-All's fixed-embedding approximation &mdash; reaches <b style="color:var(--ink)">89.5%</b> at the identical 2,363,742/98,489,350 &asymp;2.4% labeled fraction: a 0.2-point difference, well inside any reasonable seed-to-seed noise (this is one seed; the paper does not report a spread for this particular number). This is the strongest evidence in this report that the LT-All-vs-paper gaps documented in &sect;07&ndash;14 are attributable to the embeddings/surrogate substitution, not to this pipeline's data, acquisition logic, or pool handling &mdash; run the paper's own model on the paper's own pool, and the paper's own number comes back.</div>
+</section>
+
+<section>
+  <div class="section-head"><span class="section-num">16</span><h2>D4: standing up a second docking target, engineering notes</h2></div>
+  <div class="prose">
+    <p>D4 is the paper's other ultra-large-library target (AmpC's sibling, both from Lyu et al.'s original docking release), being brought up to the same pipeline stage AmpC started this session at: raw SMILES/scores &rarr; dedup &rarr; per-backbone embedding extraction &rarr; registration as a <code>run_experiment.py</code> dataset. No AL results yet &mdash; this section is pipeline-standup notes only, kept here rather than a separate report because every incident below is a repeat (or a variant) of a failure mode this report's own earlier sections already catalogued for AmpC.</p>
+  </div>
+
+  <h3>Engineering notes</h3>
+  <div class="prose">
+    <p><b style="color:var(--ink)">D4's docking scores looked missing, but weren't.</b> <code>d4_138M/</code> (project storage) held only <code>d4_smiles.txt</code> (116,241,184 rows) &mdash; no scores file anywhere alongside it, and no download URL saved in this repo to re-fetch one. Turned out the source file was never lost, just never copied: <code>d4_enamine_style.csv</code> at its original path (<code>/N/project/SingleCell_Image/Yang/AI Drug/LargeData/D4/</code>) already had the "smiles,score" columns D4's own SMILES-only extraction had discarded, row-for-row aligned with <code>d4_smiles.txt</code> (verified directly: row 500,000 of the CSV matches line 499,999 of the SMILES file, off by the CSV's header row). Gzipped as-is into <code>d4_scores.csv.gz</code> &mdash; no reformatting needed, its column order already matches <code>ampc_scores.csv.gz</code>'s convention.</p>
+    <p><b style="color:var(--ink)">A genuine bug in the dedup script, caught before it ever ran on D4:</b> <code>embed/stitch/dedup_smiles_and_scores.py</code> (built for AmpC, never used on a second dataset until now) hardcoded its output filenames as <code>ampc_smiles.txt</code>/<code>ampc_scores.csv.gz</code> regardless of what was passed in via <code>--smiles-file</code>/<code>--scores-file</code>. Running it as-is for D4 would have written AmpC-named files inside D4's own dedup directory &mdash; wrong and confusing, though not a collision with AmpC's actual files (different directory trees). Fixed to derive each output name from its corresponding input file's own basename; no behavior change for AmpC's existing invocation.</p>
+    <p><b style="color:var(--ink)">The MPN parallel run's two-step launch sequencing got missed, and it cost close to two days.</b> The orchestrator (job 10556473, AmpC's own MPN run, not D4) finished round 1's training and wrote its ready-marker at 17:54 on 2026-09-21, then sat idly polling for round-1 shard predictions that could never arrive &mdash; the per-round worker array is a <i>separate</i> <code>sbatch</code> submission by design (see &sect;15), and it was never issued. By the time this was caught the orchestrator had been waiting 41.7 hours; workers were submitted immediately (job 10592417), but the orchestrator's own 48h wall-clock budget ran out first (<code>DUE TO TIME LIMIT</code>, 2026-09-23T13:34:55), killed mid-wait with round 1's prediction still in progress. Recovery required NOT simply resubmitting the orchestrator: since round 1 never reached a completed checkpoint (that only gets written after the orchestrator itself gathers all shards), <code>--resume</code> would restart round 1 from scratch, overwriting the checkpoint file the still-running workers were actively reading from mid-shard &mdash; harmless if it happens after they've all finished (they hold the loaded model in memory, not a live file handle), a real race if it happens while any worker's retry-wrapper is mid-<code>load()</code>. Correct sequence: let all 8 shards reach <code>.done</code> first, <i>then</i> resubmit the orchestrator, which retrains redundantly (~4h wasted) but immediately finds every shard already done and proceeds straight to round 2.</p>
+    <p><b style="color:var(--ink)">26 of MolFormer's 70 extraction chunks silently exceeded their time budget.</b> <code>submit_d4_molformer_extract.sh</code> (job 10559224) budgeted 12h/chunk; 44 finished (one directly confirmed at 36,392.4s &asymp; 10.1h, close to the limit), but 26 hit <code>DUE TO TIME LIMIT</code> outright &mdash; MolFormer's per-molecule cost apparently varies enough (likely SMILES-length/tokenization-dependent) that a uniform chunk-density budget isn't safe. The only log signal at a glance was a benign, unrelated HuggingFace tokenizer warning ("Asking to truncate to max_length...") on every chunk, successful or not &mdash; the real failure only showed up in the <code>.err</code> file's SLURM-level cancellation message, not the job's own stdout. Fixed by resubmitting exactly the 26 missing chunk indices (computed by diffing existing chunk files against the full 0&ndash;69 range, not assumed contiguous) with <code>--time=24:00:00</code> passed on the <code>sbatch</code> command line, which overrides the script's own <code>#SBATCH --time</code> directive without editing the file.</p>
+    <p><b style="color:var(--ink)">Per-user submitted-job-count QOS limits (<code>QOSMaxSubmitJobPerUserLimit</code>) were hit repeatedly, on two separate QOS buckets.</b> Both <code>h100-single</code> and <code>general</code> partitions cap a user at 1,000 total submitted array tasks; every one of D4's six embedding backbones needed splitting into <code>sbatch</code> waves sized to whatever headroom <code>squeue -u &lt;user&gt; -r -p &lt;partition&gt; | wc -l</code> showed at submission time (subtracting the header line), using each script's existing <code>OFFSET</code> argument to select which slice of the full chunk range that wave covers. Not a bug &mdash; a real, recurring cluster constraint every large array submission on this account has to work around.</p>
   </div>
 </section>
 
 <footer>
   <span>al-molecular &middot; run_experiment.py / surrogates.py:LTAllSurrogate / molpal/models/mvemodels.py / stitch_enhits_large_shards.py / al-embed:embed/stitch/pca_reduce_embeddings.py / predict_pool_shard_worker_mpn.py</span>
-  <span>Updated 2026-09-21</span>
+  <span>Updated 2026-09-30</span>
 </footer>

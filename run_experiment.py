@@ -34,6 +34,7 @@ import os
 import pickle
 import time
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -1059,13 +1060,21 @@ class MolPALExplorer:
         print(f"\n[done] results -> {self.run_dir}")
 
 
-def build_mpn_model(ncpu: int = 1, length: int = 2048):
+def build_mpn_model(ncpu: int = 1, length: int = 2048, batch_size: Optional[int] = None):
     """The MolPAL MPN (mean-variance-estimation head) exactly as
     MolPALExplorer builds it -- shared by the parallel orchestrator and its
-    prediction workers so both sides construct an identical architecture."""
+    prediction workers so both sides construct an identical architecture.
+
+    batch_size=None preserves MPNN's own default (50, the paper's value);
+    prediction workers never need to override it (test_batch_size is set
+    independently and batch_size never enters inference), so only the
+    orchestrator's call site ever passes a non-None value."""
     from molpal.models import model as build_model
-    return build_model(model="mpn", conf_method="mve", input_size=length,
-                        test_batch_size=4096, ncpu=ncpu)
+    kwargs = dict(model="mpn", conf_method="mve", input_size=length,
+                  test_batch_size=4096, ncpu=ncpu)
+    if batch_size is not None:
+        kwargs["batch_size"] = batch_size
+    return build_model(**kwargs)
 
 
 class ParallelMolPALExplorer(MolPALExplorer):
@@ -1099,7 +1108,7 @@ class ParallelMolPALExplorer(MolPALExplorer):
         self, pool_smiles, oracle, acq, usable_mask, num_shards, coord_dir,
         init_size=8417, batch_size=8417, n_rounds=5, topk=1000, run_dir=None,
         seed=42, ncpu=1, poll_interval=5.0, retrain_from_scratch=True,
-        resume_scores=None, resume_round=0, length=2048,
+        resume_scores=None, resume_round=0, length=2048, mpn_batch_size=None,
     ):
         # Deliberately does NOT call MolPALExplorer.__init__ (it np.array()s
         # the pool and draws the init set over unusable molecules too);
@@ -1122,7 +1131,7 @@ class ParallelMolPALExplorer(MolPALExplorer):
         self.poll_interval = poll_interval
         self.retrain_from_scratch = retrain_from_scratch
 
-        self.model = build_mpn_model(ncpu=ncpu, length=length)
+        self.model = build_mpn_model(ncpu=ncpu, length=length, batch_size=mpn_batch_size)
         self.acq_fn = get_metric(acq)
         self.acq_name = acq
         self.needs_var = acq in ("ucb", "lcb", "thompson", "ts", "ei", "pi")
@@ -1321,6 +1330,14 @@ def parse_args():
                               "as in the paper ('fully retrained from scratch with all acquired data at the "
                               "beginning of each iteration'). --no-retrain-from-scratch continues training "
                               "the previous round's weights, as the single-process MolPALExplorer does.")
+    mp_grp.add_argument("--mpn-batch-size", type=int, default=None,
+                         help="Override MPNN's training batch_size (default: 50, chemprop/paper default). "
+                              "A deliberate deviation from the paper's own hyperparameter, NOT just a speed "
+                              "knob -- batch_size interacts with warmup_epochs/the LR schedule, so this can "
+                              "change convergence behavior and recall, not only wall-clock. Only affects "
+                              "ParallelMolPALExplorer's training (the orchestrator); prediction workers are "
+                              "unaffected (test_batch_size is set independently and batch_size never enters "
+                              "inference).")
 
     return p.parse_args()
 
@@ -1432,6 +1449,7 @@ def main():
             topk=args.topk, run_dir=run_dir, seed=args.seed, ncpu=args.ncpu,
             poll_interval=args.poll_interval, retrain_from_scratch=args.retrain_from_scratch,
             resume_scores=resume_scores, resume_round=resume_round, length=args.length,
+            mpn_batch_size=args.mpn_batch_size,
         )
 
     else:

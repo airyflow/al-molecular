@@ -400,6 +400,7 @@ class MPNModel(Model):
         ddp: bool = False,
         precision: int = 32,
         epochs: int = 50,
+        batch_size: int = 50,
         model_seed: Optional[int] = None,
         log_dir: Optional[Union[str, Path]] = None,
         **kwargs,
@@ -408,8 +409,8 @@ class MPNModel(Model):
 
         self.build_model = partial(
             MPNN, test_batch_size=test_batch_size,
-            ncpu=ncpu, ddp=ddp, 
-            precision=precision, epochs=epochs, 
+            ncpu=ncpu, ddp=ddp,
+            precision=precision, epochs=epochs, batch_size=batch_size,
             model_seed=model_seed,
             log_dir=log_dir
         )
@@ -458,6 +459,7 @@ class MPNDropoutModel(Model):
         ddp: bool = False,
         precision: int = 32,
         epochs: int = 50,
+        batch_size: int = 50,
         model_seed: Optional[int] = None,
         log_dir: Optional[Union[str, Path]] = None,
         **kwargs,
@@ -473,6 +475,7 @@ class MPNDropoutModel(Model):
             ddp=ddp,
             precision=precision,
             epochs=epochs,
+            batch_size=batch_size,
             model_seed=model_seed,
             log_dir=log_dir
         )
@@ -530,6 +533,7 @@ class MPNTwoOutputModel(Model):
         ddp: bool = False,
         precision: int = 32,
         epochs: int = 50,
+        batch_size: int = 50,
         model_seed: Optional[int] = None,
         log_dir: Optional[Union[str, Path]] = None,
         **kwargs,
@@ -538,8 +542,8 @@ class MPNTwoOutputModel(Model):
         print(test_batch_size)
         self.build_model = partial(
             MPNN, test_batch_size=test_batch_size,
-            uncertainty="mve", ncpu=ncpu, ddp=ddp, 
-            precision=precision, epochs=epochs,
+            uncertainty="mve", ncpu=ncpu, ddp=ddp,
+            precision=precision, epochs=epochs, batch_size=batch_size,
             model_seed=model_seed,
             log_dir=log_dir
         )

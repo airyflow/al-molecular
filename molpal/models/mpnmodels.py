@@ -111,9 +111,14 @@ class MPNN:
         precision: int = 32,
         show_progress_bar: bool = False,
         model_seed: Optional[int] = None,
-        log_dir: Optional[Union[str, Path]] = None
+        log_dir: Optional[Union[str, Path]] = None,
+        persistent_workers: bool = False,
     ):
         self.ncpu = ncpu
+        # Keep training/validation loader workers alive across epochs instead of
+        # restarting them (and re-sending the dataset) every epoch. Off by
+        # default so existing runs are unchanged.
+        self.persistent_workers = persistent_workers
         self.ddp = ddp
         if precision not in (16, 32):
             raise ValueError(f'arg: "precision" can only be (16, 32)! got: {precision}')
@@ -215,9 +220,13 @@ class MPNN:
             return True
 
         train_dataloader = MoleculeDataLoader(
-            train_data, self.batch_size, self.ncpu, pin_memory=True, shuffle=False
+            train_data, self.batch_size, self.ncpu, pin_memory=True, shuffle=False,
+            persistent_workers=self.persistent_workers,
         )
-        val_dataloader = MoleculeDataLoader(val_data, self.batch_size, self.ncpu, pin_memory=True, shuffle=False)
+        val_dataloader = MoleculeDataLoader(
+            val_data, self.batch_size, self.ncpu, pin_memory=True, shuffle=False,
+            persistent_workers=self.persistent_workers,
+        )
 
         lit_model = mpnn.ptl.LitMPNN(self.train_config)
 
@@ -401,6 +410,7 @@ class MPNModel(Model):
         precision: int = 32,
         epochs: int = 50,
         batch_size: int = 50,
+        persistent_workers: bool = False,
         model_seed: Optional[int] = None,
         log_dir: Optional[Union[str, Path]] = None,
         **kwargs,
@@ -410,7 +420,7 @@ class MPNModel(Model):
         self.build_model = partial(
             MPNN, test_batch_size=test_batch_size,
             ncpu=ncpu, ddp=ddp,
-            precision=precision, epochs=epochs, batch_size=batch_size,
+            precision=precision, epochs=epochs, batch_size=batch_size, persistent_workers=persistent_workers,
             model_seed=model_seed,
             log_dir=log_dir
         )
@@ -460,6 +470,7 @@ class MPNDropoutModel(Model):
         precision: int = 32,
         epochs: int = 50,
         batch_size: int = 50,
+        persistent_workers: bool = False,
         model_seed: Optional[int] = None,
         log_dir: Optional[Union[str, Path]] = None,
         **kwargs,
@@ -475,7 +486,7 @@ class MPNDropoutModel(Model):
             ddp=ddp,
             precision=precision,
             epochs=epochs,
-            batch_size=batch_size,
+            batch_size=batch_size, persistent_workers=persistent_workers,
             model_seed=model_seed,
             log_dir=log_dir
         )
@@ -534,6 +545,7 @@ class MPNTwoOutputModel(Model):
         precision: int = 32,
         epochs: int = 50,
         batch_size: int = 50,
+        persistent_workers: bool = False,
         model_seed: Optional[int] = None,
         log_dir: Optional[Union[str, Path]] = None,
         **kwargs,
@@ -543,7 +555,7 @@ class MPNTwoOutputModel(Model):
         self.build_model = partial(
             MPNN, test_batch_size=test_batch_size,
             uncertainty="mve", ncpu=ncpu, ddp=ddp,
-            precision=precision, epochs=epochs, batch_size=batch_size,
+            precision=precision, epochs=epochs, batch_size=batch_size, persistent_workers=persistent_workers,
             model_seed=model_seed,
             log_dir=log_dir
         )

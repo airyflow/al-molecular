@@ -7,8 +7,8 @@
 #SBATCH -e logs/probe_mpn_train_%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=16
-#SBATCH --time=4:00:00
+#SBATCH --cpus-per-task=18
+#SBATCH --time=6:00:00
 #SBATCH --mem=64G
 #SBATCH -A r00939
 
@@ -16,6 +16,10 @@
 # full training step, at batch sizes 50 and 1024, on the first 200,000 D4
 # molecules -- same --ncpu 8 and node type as the real orchestrator runs.
 # Answers why batch size 1024 sped training up only 1.2-1.4x (report sect. 16).
+#
+# Default: 8 and 16 loader workers x persistent off/on x batch 50 and 1024, 3 epochs
+# each (8 configs). Override with env vars, e.g.
+#   NCPU=8 PERSIST=off BS=50 EPOCHS=2 sbatch slurm/al_runs/d4/submit_probe_mpn_training.sh
 #
 # Usage: sbatch slurm/al_runs/d4/submit_probe_mpn_training.sh
 
@@ -37,4 +41,4 @@ export OMP_NUM_THREADS=8 MKL_NUM_THREADS=8 OPENBLAS_NUM_THREADS=8
 
 D=/N/project/SingleCell_Image/mengjing/d4_138M/dedup
 python3 -u probe_mpn_training.py --smiles-file "$D/d4_smiles.txt" --scores-file "$D/d4_scores.csv.gz" \
-    --n 200000 --epochs 2 --ncpu 8 --batch-sizes 50 1024
+    --n 200000 --epochs ${EPOCHS:-3} --ncpu ${NCPU:-8 16} --persistent ${PERSIST:-both} --batch-sizes ${BS:-50 1024}

@@ -445,6 +445,7 @@ class MoleculeDataLoader(DataLoader):
         shuffle: bool = False,
         seed: int = 0,
         pin_memory: bool = False,
+        persistent_workers: bool = False,
     ):
         """
         :param dataset: The :class:`MoleculeDataset` containing the molecules
@@ -494,6 +495,7 @@ class MoleculeDataLoader(DataLoader):
             multiprocessing_context=self._context,
             timeout=self._timeout,
             pin_memory=pin_memory,
+            persistent_workers=persistent_workers and self._num_workers > 0,
         )
 
     @property

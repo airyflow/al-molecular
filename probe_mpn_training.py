@@ -27,7 +27,9 @@ def main():
     ap.add_argument("--scores-file", required=True, help="row-aligned with --smiles-file (csv/csv.gz with a score column)")
     ap.add_argument("--n", type=int, default=100_000)
     ap.add_argument("--epochs", type=int, default=2)
-    ap.add_argument("--ncpu", type=int, default=8)
+    ap.add_argument("--ncpu", type=int, nargs="+", default=[8], help="data-loader worker counts to try")
+    ap.add_argument("--persistent", choices=["off", "on", "both"], default="off",
+                    help="keep loader workers alive across epochs (persistent_workers)")
     ap.add_argument("--batch-sizes", type=int, nargs="+", default=[50, 1024])
     args = ap.parse_args()
 
@@ -45,7 +47,7 @@ def main():
     smis = [s for s, k in zip(smis, ok) if k]
     ys = ys[ok]
     n = len(smis)
-    print(f"[data] {n:,} scored molecules, ncpu={args.ncpu}", flush=True)
+    print(f"[data] {n:,} scored molecules", flush=True)
 
     m = min(n, 20_000)
     t = time.perf_counter()
@@ -58,29 +60,34 @@ def main():
     print(f"[featurize] {m:,} molecules, one process: SMILES->mol {1e3*t_mol/m:.3f} ms/mol, "
           f"mol->MolGraph {1e3*t_graph/m:.3f} ms/mol", flush=True)
 
+    persist_opts = {"off": [False], "on": [True], "both": [False, True]}[args.persistent]
     for bs in args.batch_sizes:
-        ds = MoleculeDataset([MoleculeDatapoint([s], [y]) for s, y in zip(smis, ys)])
-        loader = MoleculeDataLoader(ds, bs, args.ncpu, pin_memory=False, shuffle=False)
-        t = time.perf_counter()
-        it = iter(loader)
-        next(it)
-        t_first = time.perf_counter() - t
-        k = 1
-        for _ in it:
-            k += 1
-        t_load = time.perf_counter() - t
-        print(f"[loader] bs={bs}: {k:,} batches, first batch after {t_first:.1f}s, full pass {t_load:.1f}s "
-              f"= {n / t_load:,.0f} mol/s", flush=True)
+        for ncpu in args.ncpu:
+            for persistent in persist_opts:
+                tag = f"bs={bs} workers={ncpu} persistent={'on' if persistent else 'off'}"
+                ds = MoleculeDataset([MoleculeDatapoint([s], [y]) for s, y in zip(smis, ys)])
+                loader = MoleculeDataLoader(ds, bs, ncpu, pin_memory=False, shuffle=False,
+                                            persistent_workers=persistent)
+                passes = []
+                for _ in range(2):  # pass 2 shows what reusing the workers saves
+                    t = time.perf_counter()
+                    it = iter(loader)
+                    next(it)
+                    t_first = time.perf_counter() - t
+                    for _ in it:
+                        pass
+                    passes.append((t_first, time.perf_counter() - t))
+                del loader
+                print(f"[loader] {tag}: pass 1 {passes[0][1]:.1f}s (first batch {passes[0][0]:.1f}s), "
+                      f"pass 2 {passes[1][1]:.1f}s (first batch {passes[1][0]:.1f}s)", flush=True)
 
-        mdl = build_model(model="mpn", conf_method="mve", input_size=2048, test_batch_size=4096,
-                          ncpu=args.ncpu, batch_size=bs, epochs=args.epochs)
-        t = time.perf_counter()
-        mdl.train(smis, ys, retrain=True)
-        t_train = time.perf_counter() - t
-        print(f"[train] bs={bs}: {args.epochs} epochs in {t_train:.1f}s = {t_train / args.epochs:.1f}s/epoch "
-              f"= {n * args.epochs / t_train:,.0f} molecule-epochs/s; data-loader pass alone = "
-              f"{t_load:.1f}s ({100 * t_load / (t_train / args.epochs):.0f}% of an epoch)", flush=True)
-
+                mdl = build_model(model="mpn", conf_method="mve", input_size=2048, test_batch_size=4096,
+                                  ncpu=ncpu, batch_size=bs, epochs=args.epochs, persistent_workers=persistent)
+                t = time.perf_counter()
+                mdl.train(smis, ys, retrain=True)
+                t_train = time.perf_counter() - t
+                print(f"[train] {tag}: {args.epochs} epochs in {t_train:.1f}s = {t_train / args.epochs:.1f}s/epoch "
+                      f"= {n * args.epochs / t_train:,.0f} molecule-epochs/s", flush=True)
 
 if __name__ == "__main__":
     main()

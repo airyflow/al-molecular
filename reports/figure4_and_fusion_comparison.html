@@ -1166,7 +1166,28 @@ footer {
     </table>
   </div>
   <div class="callout">
-    <b>On identical data and hardware, batch size 1024 is 1.09&times; faster than 50.</b> Each epoch is dominated by the data loader on the CPU: molecular graphs are rebuilt from SMILES every epoch (caching them was ruled out at ~15 TB for AmpC), and the 8 loader workers are restarted every epoch and handed the whole dataset again, which alone delays the first batch by 40&ndash;56 s here and grows with the training set. Batch size only reduces the GPU-side step overhead, a minority of each epoch. Its effect on recall is unknown: D4 MPN at batch size 1024 reached 69.2% (vs. 76.9% for LT-All), but there is no batch-size-50 D4 MPN run to compare against. Likely faster options, none yet measured: keep loader workers alive between epochs (<code>persistent_workers=True</code> in <code>MoleculeDataLoader</code>), and use all 16 requested CPUs as loader workers instead of 8. Faster GPU arithmetic, such as mixed precision, would help little, since the GPU is not the bottleneck.
+    <b>On identical data and hardware, batch size 1024 is 1.09&times; faster than 50.</b> Each epoch is dominated by the data loader on the CPU: molecular graphs are rebuilt from SMILES every epoch (caching them was ruled out at ~15 TB for AmpC), and the 8 loader workers are restarted every epoch and handed the whole dataset again, which alone delays the first batch by 40&ndash;56 s here and grows with the training set. Batch size only reduces the GPU-side step overhead, a minority of each epoch. Its effect on recall is unknown: D4 MPN at batch size 1024 reached 69.2% (vs. 76.9% for LT-All), but there is no batch-size-50 D4 MPN run to compare against. Faster GPU arithmetic, such as mixed precision, would help little, since the GPU is not the bottleneck; the loader fixes below were tested instead.
+  </div>
+
+  <h4>Keeping loader workers alive between epochs</h4>
+  <div class="prose"><p>Profile job 11931298: the same 200,000 D4 molecules and H100 node, 3 epochs per setting, with <code>persistent_workers</code> (new option, off by default) in <code>MoleculeDataLoader</code> and <code>MPNN</code>. &ldquo;Second loader pass&rdquo; is a full pass of the data loader alone after the first, which shows the steady-state cost once workers are running.</p></div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th class="num">Batch</th><th class="num">Workers</th><th>Persistent</th><th class="num">Epoch time</th><th class="num">Molecule-epochs/s</th><th class="num">vs. current</th><th class="num">Second loader pass (first batch)</th></tr></thead>
+      <tbody>
+        <tr><td class="num">50</td><td class="num">8</td><td>off (current)</td><td class="num">139.0 s</td><td class="num">1,438</td><td class="num">1.00&times;</td><td class="num">95.8 s (39.2 s)</td></tr>
+        <tr><td class="num">50</td><td class="num">8</td><td><b>on</b></td><td class="num"><b>79.1 s</b></td><td class="num"><b>2,530</b></td><td class="num"><b>1.76&times;</b></td><td class="num">55.4 s (0.2 s)</td></tr>
+        <tr><td class="num">50</td><td class="num">16</td><td>off</td><td class="num">201.6 s</td><td class="num">992</td><td class="num">0.69&times;</td><td class="num">116.0 s (77.5 s)</td></tr>
+        <tr><td class="num">50</td><td class="num">16</td><td>on</td><td class="num">92.3 s</td><td class="num">2,167</td><td class="num">1.51&times;</td><td class="num">38.4 s (0.2 s)</td></tr>
+        <tr><td class="num">1024</td><td class="num">8</td><td>off</td><td class="num">133.2 s</td><td class="num">1,501</td><td class="num">1.04&times;</td><td class="num">82.1 s (41.6 s)</td></tr>
+        <tr><td class="num">1024</td><td class="num">8</td><td><b>on</b></td><td class="num"><b>76.8 s</b></td><td class="num"><b>2,604</b></td><td class="num"><b>1.81&times;</b></td><td class="num">47.1 s (3.3 s)</td></tr>
+        <tr><td class="num">1024</td><td class="num">16</td><td>off</td><td class="num">194.0 s</td><td class="num">1,031</td><td class="num">0.72&times;</td><td class="num">102.1 s (78.6 s)</td></tr>
+        <tr><td class="num">1024</td><td class="num">16</td><td>on</td><td class="num">79.2 s</td><td class="num">2,526</td><td class="num">1.76&times;</td><td class="num">26.8 s (3.6 s)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout">
+    <b>Keeping loader workers alive makes MPN training about 1.8&times; faster, with identical results.</b> At batch size 50 with 8 workers, epoch time drops from 139.0 to 79.1 s; the first batch of each later epoch arrives in 0.2 s instead of about 40 s, because workers are no longer restarted and re-sent the dataset every epoch. These runs are 3 epochs, so the one-time start-up still weighs on them; a real 50-epoch round should gain more (not measured). With a fixed seed, training with the option off and on gave bit-identical predictions (2,000 molecules, 2 epochs, CPU), so it changes only speed. Doubling to 16 workers is not a free gain: their start-up takes about 75 s instead of 40, which made non-persistent runs slower (0.69&ndash;0.72&times;); once running they build graphs faster (second loader pass 26.8 vs. 47.1 s at batch 1024), so with persistent workers 16 may beat 8 over a full 50-epoch round &mdash; untested. Recommended setting: persistent workers on, 8 workers. Batch size remains nearly irrelevant (1.04&times;).
   </div>
 
   <h3>Engineering notes</h3>

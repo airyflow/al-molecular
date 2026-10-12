@@ -59,7 +59,12 @@ export OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4
 export SRUN_CPUS_PER_TASK="$SLURM_CPUS_PER_TASK"
 
 TASK_ID="${SLURM_ARRAY_TASK_ID:?submit with --array=0-14}"
-SEEDS=(42 43 44 45 46)
+# AA_SEEDS overrides the seed set, for the decision rule's replication clause.
+# The controls it pairs against come from submit_surrogate_sweep.sh arm 4:
+#   AA_SEEDS="47 48 49 50 51" sbatch --export=ALL,AA_SEEDS --array=20-24%5 \
+#       adaptive_acq/slurm/submit_surrogate_sweep.sh
+read -r -a SEEDS <<< "${AA_SEEDS:-42 43 44 45 46}"
+[ "${#SEEDS[@]}" = 5 ] || { echo "AA_SEEDS must list exactly 5 seeds"; exit 1; }
 seed="${SEEDS[$((TASK_ID % 5))]}"
 arm=$((TASK_ID / 5))
 MULTS=(2 5 10)

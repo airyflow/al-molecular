@@ -91,6 +91,34 @@ policy could gain on ENHITS/LT-All is about +0.005 recall, so learned β
 controllers (bandit/PPO) are not justified here. The usable finding is a fixed
 rule (β ≈ 0.1–0.3 at batches ≥ 0.2%), which still needs replicating on new seeds.
 
+### Prefilter trade curve + shortlist refresh (real pool, 2026-10-12)
+
+`submit_prefilter_curve.sh`, 4 more arms x 5 seeds, paired against
+full-scoring LT-All greedy (0.8764, 5.00 passes, 386 s/run):
+
+| arm | shortlist | r5 diff [95% CI] | passes | speedup | sec | verdict |
+|---|---|---|---|---|---|---|
+| `pf10` | 10x budget, frozen | −0.0040 [−0.0086, +0.0006] | 1.23 | 4.1× | 95 | inconclusive |
+| `pf20` | 20x, frozen | −0.0026 [−0.0068, +0.0016] | 1.47 | 3.4× | 129 | inconclusive |
+| `pf50` | 50x, frozen | −0.0034 [−0.0101, +0.0033] | 2.19 | 2.3× | 196 | inconclusive |
+| `pf5r3` | 5x, rebuilt at r3 | −0.0022 [−0.0063, +0.0019] | 2.08 | 2.4× | 148 | inconclusive |
+| **`pf10r3`** | **10x, rebuilt at r3** | **−0.0012 [−0.0044, +0.0020]** | **2.17** | **2.3×** | **159** | **acceptable** |
+
+**The round-1 ranking is the problem, not the shortlist size.** `pf50` and
+`pf10r3` cost the same ~2.2 passes, yet a frozen shortlist covering 30% of the
+whole pool (`pf50`, −0.0034) loses more than a 6% shortlist rebuilt once from a
+better-trained surrogate (`pf10r3`, −0.0012). Frozen shortlists plateau around
+−0.003 however large (`pf20` ≈ `pf50`); one refresh breaks through that floor.
+
+`pf10r3` is the first arm in this package to pass a pre-registered rule
+(non-inferiority: CI contains 0, lower bound > −0.005). **Caveat: seven arms
+were tested against that bound and its lower bound (−0.0044) clears −0.005
+only narrowly at n=5** — by the same standard applied to the β gate and
+`tw1.0`, it should replicate on 5 fresh seeds before being claimed.
+
+Pareto picks at 13B, where full scoring is ~600 GPU-hours of scoring:
+`pf10r3` ~260 GPU-h at indistinguishable recall, `pf10` ~146 GPU-h at −0.004.
+
 ### Real-pool results: surrogate sweep and prefilter (2026-10-12)
 
 **Surrogate sweep — NO-GO** (`surrogate_sweep.py`, 4 arms x 5 seeds, paired

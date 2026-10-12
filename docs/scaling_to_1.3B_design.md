@@ -107,7 +107,7 @@ The fit itself does not grow with N, because it uses a fixed sample. For GROVER3
 
 ### Sizing
 
-T = 32 is a starting point, not a measured optimum. D4's GROVER3400 embedding-cache read streamed about 1.6 GB/s in one process. If 32 concurrent readers do not get close to 32× that, fewer, longer tasks are just as fast. Each task's memory is one block plus the params: about 7 GB for GROVER3400 (500,000 × 3,400 × 4 bytes), much less for the other backbones.
+T = 32 is a starting point, not a measured optimum. Measured 2026-10-12 (jobs 11926900/11926901, 20 GB per reader from the 28-stripe AmpC GROVER3400 file): one reader got 81 MB/s; 8 readers on 7 separate nodes got 50–82 MB/s each, about 500 MB/s together (6.2×). The two slowest shared a node, so the limit is per node: tasks must land on separate nodes to scale. Whether 32 tasks keep scaling is not yet measured. Also check stripe counts before any run: every `dedup/*_embeddings.npy` file had stripe count 1 until 2026-10-12, which caps all readers of a file at one storage server. Each task's memory is one block plus the params: about 7 GB for GROVER3400 (500,000 × 3,400 × 4 bytes), much less for the other backbones.
 
 ## Validation plan
 

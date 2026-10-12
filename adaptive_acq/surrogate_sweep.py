@@ -44,12 +44,14 @@ def ci(d):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--runs", default="runs/adaptive")
+    p.add_argument("--seeds", type=int, nargs="+", default=list(SEEDS),
+                   help="seed set to analyze (use the replication seeds to check a GO candidate)")
     args = p.parse_args()
     R = Path(args.runs)
     S = R / "surrsweep"
 
-    ctrl = {s: curve(R / f"fixed_b0_frac0.001_seed{s}") for s in SEEDS}
-    have = [s for s in SEEDS if ctrl[s] is not None]
+    ctrl = {s: curve(R / f"fixed_b0_frac0.001_seed{s}") for s in args.seeds}
+    have = [s for s in args.seeds if ctrl[s] is not None]
     if not have:
         raise SystemExit(f"no control runs under {R}/fixed_b0_frac0.001_seed* -- nothing to pair against")
     print(f"control: LT-All greedy (M=5, MSE), n={len(have)}  "

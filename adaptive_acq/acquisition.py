@@ -33,6 +33,16 @@ def effective_beta(mu: np.ndarray, sigma: np.ndarray, beta: float, beta_scale: s
         normalizing it out is what lets one controller transfer across
         surrogates/datasets with the same arm set.
     """
+    # Fail loudly on non-finite input. Under "normalized" a single inf/nan in
+    # mu makes mu.std() nan, hence beta_eff nan, hence every UCB score nan --
+    # and argpartition over all-nan returns arbitrary indices, so selection is
+    # silently randomized rather than erroring. A diverged surrogate, or a
+    # caller marking ineligible candidates with -inf, should both be loud.
+    if not (np.all(np.isfinite(mu)) and np.all(np.isfinite(sigma))):
+        raise ValueError(
+            "ucb got non-finite mu/sigma; selection would be silently randomized. "
+            "To exclude candidates, restrict the candidate set (see Campaign.shortlist_mult), "
+            "not by writing -inf into mu.")
     if beta_scale == "raw":
         return float(beta)
     if beta_scale == "normalized":

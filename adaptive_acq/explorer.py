@@ -21,11 +21,12 @@ from .state import LastBatch, hit_threshold
 
 class AdaptiveMVEExplorer(exp.MVEExplorer):
     def __init__(self, controller, beta_scale="normalized", diversity_lambda=0.0, shortlist_mult=10,
-                 diversity_backbone=None, **kwargs):
+                 diversity_backbone=None, prefilter_mult=0.0, **kwargs):
         super().__init__(acq="greedy", **kwargs)  # acq_fn unused; Campaign does acquisition
         self.controller = controller
         self.beta_scale = beta_scale
         self.diversity_lambda, self.shortlist_mult = diversity_lambda, shortlist_mult
+        self.prefilter_mult = prefilter_mult
         # Similarity for batch diversity (and the batch_redundancy log) uses
         # ONE backbone's embeddings, row-aligned with self.pool_smiles.
         emb = kwargs["emb_dict"]
@@ -67,6 +68,8 @@ class AdaptiveMVEExplorer(exp.MVEExplorer):
               f"top-{self.topk} recall={rec['topk_recall']:.1%}  reward={rec['reward']:.3f}  [{betas}]  "
               f"({rec['elapsed']:.1f}s)", flush=True)
         self._checkpoint(rnd, rec)
+        if campaign.shortlist is not None and not self._sl_path.exists():
+            np.save(self._sl_path, np.flatnonzero(campaign.shortlist))
         d = self.run_dir / f"iter_{rnd}"
         (d / "controller.json").write_text(json.dumps(controller.state_dict()))
         last = campaign.last
@@ -96,9 +99,22 @@ class AdaptiveMVEExplorer(exp.MVEExplorer):
             beta_scale=self.beta_scale, true_top_mask=true_top,
             candidate_mask=self.usable_mask, start_round=self._start_round, hit_thr=hit_thr,
             diversity_lambda=self.diversity_lambda, shortlist_mult=self.shortlist_mult,
+            prefilter_mult=self.prefilter_mult,
             feats_fn=lambda idx: np.asarray(self._div_emb[idx]),
         )
         (self.run_dir / "hit_threshold.json").write_text(json.dumps({"hit_threshold": hit_thr}))
+        # The shortlist is fixed in round 1 and must survive --resume; without
+        # it a resumed run would silently go back to scoring the whole pool.
+        sl_path = self.run_dir / "shortlist.npy"
+        if self.prefilter_mult > 0 and self._start_round > 0:
+            if not sl_path.exists():
+                raise SystemExit(f"--prefilter-mult given and resuming at round {self._start_round + 1}, "
+                                 f"but {sl_path} is missing -- cannot reproduce the round-1 shortlist")
+            mask = np.zeros(n, dtype=bool)
+            mask[np.load(sl_path)] = True
+            campaign.shortlist = mask
+            print(f"[resume] restored shortlist of {int(mask.sum()):,} molecules")
+        self._sl_path = sl_path
         if self._start_round > 0:
             self._restore(campaign)
         (self.run_dir / "controller_config.json").write_text(

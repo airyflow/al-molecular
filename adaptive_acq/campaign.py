@@ -31,6 +31,7 @@ class Campaign:
         counterfactual: bool = False,
         start_round: int = 0,
         hit_thr: Optional[float] = None,
+        prefilter_mult: float = 0.0,
         diversity_lambda: float = 0.0,
         shortlist_mult: int = 10,
         feats_fn: Optional[Callable] = None,
@@ -48,6 +49,12 @@ class Campaign:
             None = all.
         counterfactual: also score every arm's would-be batch with the oracle
             and pass those rewards to the controller (simulator only).
+        prefilter_mult: > 0 enables "score once, then refine": the first round
+            scores every candidate and keeps the top
+            prefilter_mult * (init + n_rounds * batch) as a shortlist; later
+            rounds only ever consider that shortlist. Cuts pool-scoring cost,
+            the dominant cost at billion scale. 0 = score everything each
+            round (original behavior).
         diversity_lambda: > 0 selects each batch by greedy max-marginal
             relevance (acquisition.select_diverse) on the controller's UCB
             score instead of plain top-k; needs a single-arm plan and
@@ -62,6 +69,8 @@ class Campaign:
         self.candidate_mask = candidate_mask
         self.start_round = start_round
         self.diversity_lambda, self.shortlist_mult, self.feats_fn = diversity_lambda, shortlist_mult, feats_fn
+        self.prefilter_mult = prefilter_mult
+        self.shortlist = None  # bool mask over the pool once fixed (prefilter_mult > 0)
         if diversity_lambda > 0 and feats_fn is None:
             raise ValueError("diversity_lambda > 0 needs feats_fn")
 
@@ -82,7 +91,22 @@ class Campaign:
         avail = ~self.labeled
         if self.candidate_mask is not None:
             avail &= self.candidate_mask
+        if self.shortlist is not None:
+            avail &= self.shortlist
         return np.flatnonzero(avail)
+
+    def budget(self) -> int:
+        """Total molecules this campaign will label (init + one batch per round)."""
+        return int(len(self.labeled_idx) + self.batch_size * (self.n_rounds - self.start_round))
+
+    def _set_shortlist(self, mu, cand):
+        size = min(self.n_pool, int(round(self.prefilter_mult * self.budget())))
+        if size >= len(mu):
+            return
+        keep = np.argpartition(-mu, size)[:size]
+        mask = np.zeros(self.n_pool, dtype=bool)
+        mask[cand[keep]] = True
+        self.shortlist = mask
 
     def step(self, controller, rnd: int) -> dict:
         t0 = time.perf_counter()
@@ -91,6 +115,9 @@ class Campaign:
         mu = np.asarray(mu, dtype=np.float64)
         sigma = np.maximum(np.asarray(sigma, dtype=np.float64), 0.0)
         t_model = time.perf_counter() - t0
+        n_scored = len(cand)
+        if self.prefilter_mult > 0 and self.shortlist is None:
+            self._set_shortlist(mu, cand)
 
         beta_max = max(controller.arms)
         ctx = featurize(mu, sigma, self.labeled_y, rnd, self.n_rounds, self.batch_size,
@@ -140,6 +167,7 @@ class Campaign:
             context=[round(float(v), 5) for v in ctx],
             elapsed=round(time.perf_counter() - t0, 2), model_time=round(t_model, 2),
             diversity_lambda=self.diversity_lambda,
+            n_scored=n_scored, scored_frac=round(n_scored / self.n_pool, 6),
         )
         if self.feats_fn is not None:
             rec["batch_redundancy"] = round(batch_redundancy(self.feats_fn(new_idx)), 4)

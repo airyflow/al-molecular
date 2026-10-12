@@ -91,6 +91,43 @@ policy could gain on ENHITS/LT-All is about +0.005 recall, so learned β
 controllers (bandit/PPO) are not justified here. The usable finding is a fixed
 rule (β ≈ 0.1–0.3 at batches ≥ 0.2%), which still needs replicating on new seeds.
 
+### "Score once, then refine" — the cost axis (simulator, 2026-10-12)
+
+`prefilter_sim.py`. Measured on ENHITS: a round is ~70 s, of which only 3-6 s
+is LT-All training — the rest is scoring the pool. At 13B that is ~120
+GPU-hours *per round*, while the oracle budget does not grow with pool size at
+all. Since the β gate showed greedy is within 0.005 of optimal **given** full
+scoring, the question that matters at scale is how few molecules must be
+scored. Strategy: score the pool once in round 1, keep the top S, and only
+ever refine within S. S is a multiple of the total labeling budget (scale-free;
+the simulator labels ~6% of its pool per campaign, real ENHITS ~0.6%).
+
+Paired recall loss at round 5 vs full-pool scoring (3 seeds, ridge surrogate):
+
+| S / budget | ENHITS | D4 | AmpC | real-geometry passes | speedup |
+|---|---|---|---|---|---|
+| full (control) | 0.974 | 0.479 | 0.858 | 5.00 | 1× |
+| 10× | 0.000 | +0.000 | −0.001 | 1.24 | 4.0× |
+| 5× | 0.000 | −0.002 | −0.003 | 1.12 | 4.5× |
+| 2× | 0.000 | −0.019 | −0.020 | 1.05 | 4.8× |
+| 1.5× | −0.001 | −0.030 | −0.026 | 1.04 | 4.8× |
+| 1.1× | −0.005 | −0.051 | −0.033 | 1.03 | 4.9× |
+
+At S = 5× budget the loss is ≤ 0.003 on all three targets — below the entire
+β headroom — for ~4.5× fewer pool passes. **Caveat:** the simulator's ENHITS
+tasks sit at 0.974, near saturation, because the simulator labels 6% of its
+pool; the real campaign is at 0.876. D4 (0.479) and AmpC (0.858) bracket the
+real value and are the more informative proxies, so expect a real loss nearer
+their numbers than ENHITS's zeros. Needs a real-pool confirmation (S/budget ∈
+{2, 5, 10}, 5 seeds) before any claim; on the real pool those runs are also
+*cheaper* than the baseline, since rounds 2-5 score only 3-6% of the pool.
+
+Note for anyone extending this: do **not** mark ineligible candidates by
+writing `-inf` into `mu`. `acquisition.effective_beta` divides by `mu.std()`
+under the default normalized β scale, so a single non-finite entry makes every
+score `nan` and silently randomizes selection. Restrict the candidate set
+instead (`ScoreOnceCampaign` subclasses `Campaign._candidates`).
+
 ### Batch diversity (simulator, 2026-10-11)
 
 `--diversity-lambda` selects each batch by greedy max-marginal relevance

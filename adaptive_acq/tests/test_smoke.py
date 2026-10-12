@@ -157,3 +157,26 @@ def test_pulse_schedule():
         raise AssertionError("pulse without pulse_round should raise")
     except ValueError:
         pass
+
+
+def test_ucb_rejects_non_finite():
+    """-inf in mu used to make every score nan and randomize selection."""
+    from adaptive_acq.acquisition import ucb
+    mu = np.array([3.0, 2.0, -np.inf]); sigma = np.ones(3)
+    for scale in ("normalized", "raw"):
+        try:
+            ucb(mu, sigma, 0.0, scale)
+            raise AssertionError(f"ucb({scale}) should reject non-finite mu")
+        except ValueError:
+            pass
+
+
+def test_prefilter_restricts_scoring_and_is_noop_when_off(task):
+    off = run_episode(task, FixedBeta(0.0), seed=0, batch_frac=0.01, topk_frac=0.01, prefilter_mult=0.0)
+    assert all(abs(r["scored_frac"] - (1 - 0.01 * (r["round"]))) < 0.02 for r in off)  # ~full pool each round
+
+    on = run_episode(task, FixedBeta(0.0), seed=0, batch_frac=0.01, topk_frac=0.01, prefilter_mult=2.0)
+    assert on[0]["scored_frac"] == off[0]["scored_frac"]      # round 1 still scores everything
+    assert on[-1]["scored_frac"] < 0.5 * off[-1]["scored_frac"]  # later rounds score far less
+    assert sum(r["scored_frac"] for r in on) < sum(r["scored_frac"] for r in off)
+    assert on[-1]["n_labeled"] == off[-1]["n_labeled"]        # same budget spent

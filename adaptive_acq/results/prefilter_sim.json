@@ -1,0 +1,2312 @@
+[
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": null,
+  "seed": 0,
+  "recall": [
+   0.682,
+   0.87,
+   0.93,
+   0.96,
+   0.974
+  ],
+  "shortlist": 200000,
+  "sim_passes": 4.85,
+  "scored": [
+   0.99,
+   0.98,
+   0.97,
+   0.96,
+   0.95
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": null,
+  "seed": 1,
+  "recall": [
+   0.662,
+   0.866,
+   0.926,
+   0.958,
+   0.978
+  ],
+  "shortlist": 200000,
+  "sim_passes": 4.85,
+  "scored": [
+   0.99,
+   0.98,
+   0.97,
+   0.96,
+   0.95
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": null,
+  "seed": 2,
+  "recall": [
+   0.672,
+   0.862,
+   0.928,
+   0.954,
+   0.972
+  ],
+  "shortlist": 200000,
+  "sim_passes": 4.85,
+  "scored": [
+   0.99,
+   0.98,
+   0.97,
+   0.96,
+   0.95
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 1.1,
+  "seed": 0,
+  "recall": [
+   0.682,
+   0.87,
+   0.926,
+   0.958,
+   0.97
+  ],
+  "shortlist": 13200,
+  "sim_passes": 1.1540000000000001,
+  "scored": [
+   0.99,
+   0.056,
+   0.046,
+   0.036,
+   0.026
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 1.1,
+  "seed": 1,
+  "recall": [
+   0.662,
+   0.866,
+   0.926,
+   0.954,
+   0.97
+  ],
+  "shortlist": 13200,
+  "sim_passes": 1.1540000000000001,
+  "scored": [
+   0.99,
+   0.056,
+   0.046,
+   0.036,
+   0.026
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 1.1,
+  "seed": 2,
+  "recall": [
+   0.672,
+   0.862,
+   0.932,
+   0.96,
+   0.974
+  ],
+  "shortlist": 13200,
+  "sim_passes": 1.1540000000000001,
+  "scored": [
+   0.99,
+   0.056,
+   0.046,
+   0.036,
+   0.026
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 1.25,
+  "seed": 0,
+  "recall": [
+   0.682,
+   0.87,
+   0.93,
+   0.96,
+   0.97
+  ],
+  "shortlist": 15000,
+  "sim_passes": 1.1899999999999997,
+  "scored": [
+   0.99,
+   0.065,
+   0.055,
+   0.045,
+   0.035
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 1.25,
+  "seed": 1,
+  "recall": [
+   0.662,
+   0.866,
+   0.93,
+   0.956,
+   0.972
+  ],
+  "shortlist": 15000,
+  "sim_passes": 1.1899999999999997,
+  "scored": [
+   0.99,
+   0.065,
+   0.055,
+   0.045,
+   0.035
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 1.25,
+  "seed": 2,
+  "recall": [
+   0.672,
+   0.862,
+   0.93,
+   0.958,
+   0.978
+  ],
+  "shortlist": 15000,
+  "sim_passes": 1.1899999999999997,
+  "scored": [
+   0.99,
+   0.065,
+   0.055,
+   0.045,
+   0.035
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 1.5,
+  "seed": 0,
+  "recall": [
+   0.682,
+   0.87,
+   0.93,
+   0.96,
+   0.97
+  ],
+  "shortlist": 18000,
+  "sim_passes": 1.2500000000000002,
+  "scored": [
+   0.99,
+   0.08,
+   0.07,
+   0.06,
+   0.05
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 1.5,
+  "seed": 1,
+  "recall": [
+   0.662,
+   0.866,
+   0.926,
+   0.954,
+   0.976
+  ],
+  "shortlist": 18000,
+  "sim_passes": 1.2500000000000002,
+  "scored": [
+   0.99,
+   0.08,
+   0.07,
+   0.06,
+   0.05
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 1.5,
+  "seed": 2,
+  "recall": [
+   0.672,
+   0.862,
+   0.93,
+   0.954,
+   0.974
+  ],
+  "shortlist": 18000,
+  "sim_passes": 1.2500000000000002,
+  "scored": [
+   0.99,
+   0.08,
+   0.07,
+   0.06,
+   0.05
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 2.0,
+  "seed": 0,
+  "recall": [
+   0.682,
+   0.87,
+   0.93,
+   0.96,
+   0.972
+  ],
+  "shortlist": 24000,
+  "sim_passes": 1.3700000000000003,
+  "scored": [
+   0.99,
+   0.11,
+   0.1,
+   0.09,
+   0.08
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 2.0,
+  "seed": 1,
+  "recall": [
+   0.662,
+   0.866,
+   0.926,
+   0.956,
+   0.976
+  ],
+  "shortlist": 24000,
+  "sim_passes": 1.3700000000000003,
+  "scored": [
+   0.99,
+   0.11,
+   0.1,
+   0.09,
+   0.08
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 2.0,
+  "seed": 2,
+  "recall": [
+   0.672,
+   0.862,
+   0.928,
+   0.954,
+   0.974
+  ],
+  "shortlist": 24000,
+  "sim_passes": 1.3700000000000003,
+  "scored": [
+   0.99,
+   0.11,
+   0.1,
+   0.09,
+   0.08
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 5.0,
+  "seed": 0,
+  "recall": [
+   0.682,
+   0.87,
+   0.93,
+   0.96,
+   0.974
+  ],
+  "shortlist": 60000,
+  "sim_passes": 2.09,
+  "scored": [
+   0.99,
+   0.29,
+   0.28,
+   0.27,
+   0.26
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 5.0,
+  "seed": 1,
+  "recall": [
+   0.662,
+   0.866,
+   0.926,
+   0.958,
+   0.978
+  ],
+  "shortlist": 60000,
+  "sim_passes": 2.09,
+  "scored": [
+   0.99,
+   0.29,
+   0.28,
+   0.27,
+   0.26
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 5.0,
+  "seed": 2,
+  "recall": [
+   0.672,
+   0.862,
+   0.928,
+   0.954,
+   0.972
+  ],
+  "shortlist": 60000,
+  "sim_passes": 2.09,
+  "scored": [
+   0.99,
+   0.29,
+   0.28,
+   0.27,
+   0.26
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 10.0,
+  "seed": 0,
+  "recall": [
+   0.682,
+   0.87,
+   0.93,
+   0.96,
+   0.974
+  ],
+  "shortlist": 120000,
+  "sim_passes": 3.29,
+  "scored": [
+   0.99,
+   0.59,
+   0.58,
+   0.57,
+   0.56
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 10.0,
+  "seed": 1,
+  "recall": [
+   0.662,
+   0.866,
+   0.926,
+   0.958,
+   0.978
+  ],
+  "shortlist": 120000,
+  "sim_passes": 3.29,
+  "scored": [
+   0.99,
+   0.59,
+   0.58,
+   0.57,
+   0.56
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "mult": 10.0,
+  "seed": 2,
+  "recall": [
+   0.672,
+   0.862,
+   0.928,
+   0.954,
+   0.972
+  ],
+  "shortlist": 120000,
+  "sim_passes": 3.29,
+  "scored": [
+   0.99,
+   0.59,
+   0.58,
+   0.57,
+   0.56
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": null,
+  "seed": 0,
+  "recall": [
+   0.694,
+   0.874,
+   0.942,
+   0.958,
+   0.978
+  ],
+  "shortlist": 200000,
+  "sim_passes": 4.85,
+  "scored": [
+   0.99,
+   0.98,
+   0.97,
+   0.96,
+   0.95
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": null,
+  "seed": 1,
+  "recall": [
+   0.64,
+   0.874,
+   0.934,
+   0.954,
+   0.974
+  ],
+  "shortlist": 200000,
+  "sim_passes": 4.85,
+  "scored": [
+   0.99,
+   0.98,
+   0.97,
+   0.96,
+   0.95
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": null,
+  "seed": 2,
+  "recall": [
+   0.684,
+   0.868,
+   0.94,
+   0.956,
+   0.97
+  ],
+  "shortlist": 200000,
+  "sim_passes": 4.85,
+  "scored": [
+   0.99,
+   0.98,
+   0.97,
+   0.96,
+   0.95
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 1.1,
+  "seed": 0,
+  "recall": [
+   0.694,
+   0.874,
+   0.94,
+   0.956,
+   0.97
+  ],
+  "shortlist": 13200,
+  "sim_passes": 1.1540000000000001,
+  "scored": [
+   0.99,
+   0.056,
+   0.046,
+   0.036,
+   0.026
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 1.1,
+  "seed": 1,
+  "recall": [
+   0.64,
+   0.874,
+   0.928,
+   0.944,
+   0.958
+  ],
+  "shortlist": 13200,
+  "sim_passes": 1.1540000000000001,
+  "scored": [
+   0.99,
+   0.056,
+   0.046,
+   0.036,
+   0.026
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 1.1,
+  "seed": 2,
+  "recall": [
+   0.684,
+   0.868,
+   0.938,
+   0.952,
+   0.972
+  ],
+  "shortlist": 13200,
+  "sim_passes": 1.1540000000000001,
+  "scored": [
+   0.99,
+   0.056,
+   0.046,
+   0.036,
+   0.026
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 1.25,
+  "seed": 0,
+  "recall": [
+   0.694,
+   0.874,
+   0.94,
+   0.956,
+   0.972
+  ],
+  "shortlist": 15000,
+  "sim_passes": 1.1899999999999997,
+  "scored": [
+   0.99,
+   0.065,
+   0.055,
+   0.045,
+   0.035
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 1.25,
+  "seed": 1,
+  "recall": [
+   0.64,
+   0.874,
+   0.934,
+   0.952,
+   0.968
+  ],
+  "shortlist": 15000,
+  "sim_passes": 1.1899999999999997,
+  "scored": [
+   0.99,
+   0.065,
+   0.055,
+   0.045,
+   0.035
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 1.25,
+  "seed": 2,
+  "recall": [
+   0.684,
+   0.868,
+   0.938,
+   0.954,
+   0.972
+  ],
+  "shortlist": 15000,
+  "sim_passes": 1.1899999999999997,
+  "scored": [
+   0.99,
+   0.065,
+   0.055,
+   0.045,
+   0.035
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 1.5,
+  "seed": 0,
+  "recall": [
+   0.694,
+   0.874,
+   0.944,
+   0.956,
+   0.976
+  ],
+  "shortlist": 18000,
+  "sim_passes": 1.2500000000000002,
+  "scored": [
+   0.99,
+   0.08,
+   0.07,
+   0.06,
+   0.05
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 1.5,
+  "seed": 1,
+  "recall": [
+   0.64,
+   0.874,
+   0.934,
+   0.954,
+   0.97
+  ],
+  "shortlist": 18000,
+  "sim_passes": 1.2500000000000002,
+  "scored": [
+   0.99,
+   0.08,
+   0.07,
+   0.06,
+   0.05
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 1.5,
+  "seed": 2,
+  "recall": [
+   0.684,
+   0.868,
+   0.94,
+   0.956,
+   0.974
+  ],
+  "shortlist": 18000,
+  "sim_passes": 1.2500000000000002,
+  "scored": [
+   0.99,
+   0.08,
+   0.07,
+   0.06,
+   0.05
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 2.0,
+  "seed": 0,
+  "recall": [
+   0.694,
+   0.874,
+   0.942,
+   0.958,
+   0.98
+  ],
+  "shortlist": 24000,
+  "sim_passes": 1.3700000000000003,
+  "scored": [
+   0.99,
+   0.11,
+   0.1,
+   0.09,
+   0.08
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 2.0,
+  "seed": 1,
+  "recall": [
+   0.64,
+   0.874,
+   0.934,
+   0.95,
+   0.972
+  ],
+  "shortlist": 24000,
+  "sim_passes": 1.3700000000000003,
+  "scored": [
+   0.99,
+   0.11,
+   0.1,
+   0.09,
+   0.08
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 2.0,
+  "seed": 2,
+  "recall": [
+   0.684,
+   0.868,
+   0.94,
+   0.956,
+   0.972
+  ],
+  "shortlist": 24000,
+  "sim_passes": 1.3700000000000003,
+  "scored": [
+   0.99,
+   0.11,
+   0.1,
+   0.09,
+   0.08
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 5.0,
+  "seed": 0,
+  "recall": [
+   0.694,
+   0.874,
+   0.942,
+   0.958,
+   0.978
+  ],
+  "shortlist": 60000,
+  "sim_passes": 2.09,
+  "scored": [
+   0.99,
+   0.29,
+   0.28,
+   0.27,
+   0.26
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 5.0,
+  "seed": 1,
+  "recall": [
+   0.64,
+   0.874,
+   0.934,
+   0.954,
+   0.974
+  ],
+  "shortlist": 60000,
+  "sim_passes": 2.09,
+  "scored": [
+   0.99,
+   0.29,
+   0.28,
+   0.27,
+   0.26
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 5.0,
+  "seed": 2,
+  "recall": [
+   0.684,
+   0.868,
+   0.94,
+   0.956,
+   0.97
+  ],
+  "shortlist": 60000,
+  "sim_passes": 2.09,
+  "scored": [
+   0.99,
+   0.29,
+   0.28,
+   0.27,
+   0.26
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 10.0,
+  "seed": 0,
+  "recall": [
+   0.694,
+   0.874,
+   0.942,
+   0.958,
+   0.978
+  ],
+  "shortlist": 120000,
+  "sim_passes": 3.29,
+  "scored": [
+   0.99,
+   0.59,
+   0.58,
+   0.57,
+   0.56
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 10.0,
+  "seed": 1,
+  "recall": [
+   0.64,
+   0.874,
+   0.934,
+   0.954,
+   0.974
+  ],
+  "shortlist": 120000,
+  "sim_passes": 3.29,
+  "scored": [
+   0.99,
+   0.59,
+   0.58,
+   0.57,
+   0.56
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "mult": 10.0,
+  "seed": 2,
+  "recall": [
+   0.684,
+   0.868,
+   0.94,
+   0.956,
+   0.97
+  ],
+  "shortlist": 120000,
+  "sim_passes": 3.29,
+  "scored": [
+   0.99,
+   0.59,
+   0.58,
+   0.57,
+   0.56
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": null,
+  "seed": 0,
+  "recall": [
+   0.132,
+   0.276,
+   0.378,
+   0.454,
+   0.518
+  ],
+  "shortlist": 200000,
+  "sim_passes": 4.85,
+  "scored": [
+   0.99,
+   0.98,
+   0.97,
+   0.96,
+   0.95
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": null,
+  "seed": 1,
+  "recall": [
+   0.11,
+   0.246,
+   0.37,
+   0.446,
+   0.494
+  ],
+  "shortlist": 200000,
+  "sim_passes": 4.85,
+  "scored": [
+   0.99,
+   0.98,
+   0.97,
+   0.96,
+   0.95
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": null,
+  "seed": 2,
+  "recall": [
+   0.112,
+   0.254,
+   0.37,
+   0.45,
+   0.526
+  ],
+  "shortlist": 200000,
+  "sim_passes": 4.85,
+  "scored": [
+   0.99,
+   0.98,
+   0.97,
+   0.96,
+   0.95
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 1.1,
+  "seed": 0,
+  "recall": [
+   0.132,
+   0.278,
+   0.374,
+   0.434,
+   0.454
+  ],
+  "shortlist": 13200,
+  "sim_passes": 1.1540000000000001,
+  "scored": [
+   0.99,
+   0.056,
+   0.046,
+   0.036,
+   0.026
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 1.1,
+  "seed": 1,
+  "recall": [
+   0.11,
+   0.244,
+   0.354,
+   0.42,
+   0.458
+  ],
+  "shortlist": 13200,
+  "sim_passes": 1.1540000000000001,
+  "scored": [
+   0.99,
+   0.056,
+   0.046,
+   0.036,
+   0.026
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 1.1,
+  "seed": 2,
+  "recall": [
+   0.112,
+   0.258,
+   0.35,
+   0.41,
+   0.458
+  ],
+  "shortlist": 13200,
+  "sim_passes": 1.1540000000000001,
+  "scored": [
+   0.99,
+   0.056,
+   0.046,
+   0.036,
+   0.026
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 1.25,
+  "seed": 0,
+  "recall": [
+   0.132,
+   0.278,
+   0.374,
+   0.44,
+   0.476
+  ],
+  "shortlist": 15000,
+  "sim_passes": 1.1899999999999997,
+  "scored": [
+   0.99,
+   0.065,
+   0.055,
+   0.045,
+   0.035
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 1.25,
+  "seed": 1,
+  "recall": [
+   0.11,
+   0.246,
+   0.362,
+   0.426,
+   0.466
+  ],
+  "shortlist": 15000,
+  "sim_passes": 1.1899999999999997,
+  "scored": [
+   0.99,
+   0.065,
+   0.055,
+   0.045,
+   0.035
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 1.25,
+  "seed": 2,
+  "recall": [
+   0.112,
+   0.248,
+   0.354,
+   0.406,
+   0.468
+  ],
+  "shortlist": 15000,
+  "sim_passes": 1.1899999999999997,
+  "scored": [
+   0.99,
+   0.065,
+   0.055,
+   0.045,
+   0.035
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 1.5,
+  "seed": 0,
+  "recall": [
+   0.132,
+   0.278,
+   0.372,
+   0.434,
+   0.472
+  ],
+  "shortlist": 18000,
+  "sim_passes": 1.2500000000000002,
+  "scored": [
+   0.99,
+   0.08,
+   0.07,
+   0.06,
+   0.05
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 1.5,
+  "seed": 1,
+  "recall": [
+   0.11,
+   0.246,
+   0.36,
+   0.434,
+   0.47
+  ],
+  "shortlist": 18000,
+  "sim_passes": 1.2500000000000002,
+  "scored": [
+   0.99,
+   0.08,
+   0.07,
+   0.06,
+   0.05
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 1.5,
+  "seed": 2,
+  "recall": [
+   0.112,
+   0.25,
+   0.352,
+   0.416,
+   0.476
+  ],
+  "shortlist": 18000,
+  "sim_passes": 1.2500000000000002,
+  "scored": [
+   0.99,
+   0.08,
+   0.07,
+   0.06,
+   0.05
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 2.0,
+  "seed": 0,
+  "recall": [
+   0.132,
+   0.276,
+   0.372,
+   0.444,
+   0.49
+  ],
+  "shortlist": 24000,
+  "sim_passes": 1.3700000000000003,
+  "scored": [
+   0.99,
+   0.11,
+   0.1,
+   0.09,
+   0.08
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 2.0,
+  "seed": 1,
+  "recall": [
+   0.11,
+   0.246,
+   0.354,
+   0.43,
+   0.474
+  ],
+  "shortlist": 24000,
+  "sim_passes": 1.3700000000000003,
+  "scored": [
+   0.99,
+   0.11,
+   0.1,
+   0.09,
+   0.08
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 2.0,
+  "seed": 2,
+  "recall": [
+   0.112,
+   0.252,
+   0.362,
+   0.424,
+   0.496
+  ],
+  "shortlist": 24000,
+  "sim_passes": 1.3700000000000003,
+  "scored": [
+   0.99,
+   0.11,
+   0.1,
+   0.09,
+   0.08
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 5.0,
+  "seed": 0,
+  "recall": [
+   0.132,
+   0.276,
+   0.378,
+   0.454,
+   0.518
+  ],
+  "shortlist": 60000,
+  "sim_passes": 2.09,
+  "scored": [
+   0.99,
+   0.29,
+   0.28,
+   0.27,
+   0.26
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 5.0,
+  "seed": 1,
+  "recall": [
+   0.11,
+   0.246,
+   0.37,
+   0.442,
+   0.496
+  ],
+  "shortlist": 60000,
+  "sim_passes": 2.09,
+  "scored": [
+   0.99,
+   0.29,
+   0.28,
+   0.27,
+   0.26
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 5.0,
+  "seed": 2,
+  "recall": [
+   0.112,
+   0.254,
+   0.37,
+   0.444,
+   0.506
+  ],
+  "shortlist": 60000,
+  "sim_passes": 2.09,
+  "scored": [
+   0.99,
+   0.29,
+   0.28,
+   0.27,
+   0.26
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 10.0,
+  "seed": 0,
+  "recall": [
+   0.132,
+   0.276,
+   0.378,
+   0.454,
+   0.518
+  ],
+  "shortlist": 120000,
+  "sim_passes": 3.29,
+  "scored": [
+   0.99,
+   0.59,
+   0.58,
+   0.57,
+   0.56
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 10.0,
+  "seed": 1,
+  "recall": [
+   0.11,
+   0.246,
+   0.37,
+   0.446,
+   0.494
+  ],
+  "shortlist": 120000,
+  "sim_passes": 3.29,
+  "scored": [
+   0.99,
+   0.59,
+   0.58,
+   0.57,
+   0.56
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "mult": 10.0,
+  "seed": 2,
+  "recall": [
+   0.112,
+   0.254,
+   0.37,
+   0.45,
+   0.53
+  ],
+  "shortlist": 120000,
+  "sim_passes": 3.29,
+  "scored": [
+   0.99,
+   0.59,
+   0.58,
+   0.57,
+   0.56
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": null,
+  "seed": 0,
+  "recall": [
+   0.134,
+   0.23,
+   0.314,
+   0.386,
+   0.43
+  ],
+  "shortlist": 200000,
+  "sim_passes": 4.85,
+  "scored": [
+   0.99,
+   0.98,
+   0.97,
+   0.96,
+   0.95
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": null,
+  "seed": 1,
+  "recall": [
+   0.138,
+   0.278,
+   0.346,
+   0.406,
+   0.458
+  ],
+  "shortlist": 200000,
+  "sim_passes": 4.85,
+  "scored": [
+   0.99,
+   0.98,
+   0.97,
+   0.96,
+   0.95
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": null,
+  "seed": 2,
+  "recall": [
+   0.154,
+   0.266,
+   0.318,
+   0.386,
+   0.448
+  ],
+  "shortlist": 200000,
+  "sim_passes": 4.85,
+  "scored": [
+   0.99,
+   0.98,
+   0.97,
+   0.96,
+   0.95
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 1.1,
+  "seed": 0,
+  "recall": [
+   0.134,
+   0.238,
+   0.33,
+   0.388,
+   0.414
+  ],
+  "shortlist": 13200,
+  "sim_passes": 1.1540000000000001,
+  "scored": [
+   0.99,
+   0.056,
+   0.046,
+   0.036,
+   0.026
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 1.1,
+  "seed": 1,
+  "recall": [
+   0.138,
+   0.274,
+   0.334,
+   0.368,
+   0.394
+  ],
+  "shortlist": 13200,
+  "sim_passes": 1.1540000000000001,
+  "scored": [
+   0.99,
+   0.056,
+   0.046,
+   0.036,
+   0.026
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 1.1,
+  "seed": 2,
+  "recall": [
+   0.154,
+   0.26,
+   0.308,
+   0.35,
+   0.39
+  ],
+  "shortlist": 13200,
+  "sim_passes": 1.1540000000000001,
+  "scored": [
+   0.99,
+   0.056,
+   0.046,
+   0.036,
+   0.026
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 1.25,
+  "seed": 0,
+  "recall": [
+   0.134,
+   0.238,
+   0.338,
+   0.39,
+   0.424
+  ],
+  "shortlist": 15000,
+  "sim_passes": 1.1899999999999997,
+  "scored": [
+   0.99,
+   0.065,
+   0.055,
+   0.045,
+   0.035
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 1.25,
+  "seed": 1,
+  "recall": [
+   0.138,
+   0.276,
+   0.336,
+   0.378,
+   0.41
+  ],
+  "shortlist": 15000,
+  "sim_passes": 1.1899999999999997,
+  "scored": [
+   0.99,
+   0.065,
+   0.055,
+   0.045,
+   0.035
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 1.25,
+  "seed": 2,
+  "recall": [
+   0.154,
+   0.266,
+   0.322,
+   0.364,
+   0.412
+  ],
+  "shortlist": 15000,
+  "sim_passes": 1.1899999999999997,
+  "scored": [
+   0.99,
+   0.065,
+   0.055,
+   0.045,
+   0.035
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 1.5,
+  "seed": 0,
+  "recall": [
+   0.134,
+   0.236,
+   0.324,
+   0.386,
+   0.426
+  ],
+  "shortlist": 18000,
+  "sim_passes": 1.2500000000000002,
+  "scored": [
+   0.99,
+   0.08,
+   0.07,
+   0.06,
+   0.05
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 1.5,
+  "seed": 1,
+  "recall": [
+   0.138,
+   0.28,
+   0.346,
+   0.382,
+   0.41
+  ],
+  "shortlist": 18000,
+  "sim_passes": 1.2500000000000002,
+  "scored": [
+   0.99,
+   0.08,
+   0.07,
+   0.06,
+   0.05
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 1.5,
+  "seed": 2,
+  "recall": [
+   0.154,
+   0.268,
+   0.328,
+   0.384,
+   0.442
+  ],
+  "shortlist": 18000,
+  "sim_passes": 1.2500000000000002,
+  "scored": [
+   0.99,
+   0.08,
+   0.07,
+   0.06,
+   0.05
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 2.0,
+  "seed": 0,
+  "recall": [
+   0.134,
+   0.23,
+   0.308,
+   0.376,
+   0.426
+  ],
+  "shortlist": 24000,
+  "sim_passes": 1.3700000000000003,
+  "scored": [
+   0.99,
+   0.11,
+   0.1,
+   0.09,
+   0.08
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 2.0,
+  "seed": 1,
+  "recall": [
+   0.138,
+   0.282,
+   0.35,
+   0.402,
+   0.426
+  ],
+  "shortlist": 24000,
+  "sim_passes": 1.3700000000000003,
+  "scored": [
+   0.99,
+   0.11,
+   0.1,
+   0.09,
+   0.08
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 2.0,
+  "seed": 2,
+  "recall": [
+   0.154,
+   0.268,
+   0.326,
+   0.392,
+   0.45
+  ],
+  "shortlist": 24000,
+  "sim_passes": 1.3700000000000003,
+  "scored": [
+   0.99,
+   0.11,
+   0.1,
+   0.09,
+   0.08
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 5.0,
+  "seed": 0,
+  "recall": [
+   0.134,
+   0.23,
+   0.314,
+   0.388,
+   0.432
+  ],
+  "shortlist": 60000,
+  "sim_passes": 2.09,
+  "scored": [
+   0.99,
+   0.29,
+   0.28,
+   0.27,
+   0.26
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 5.0,
+  "seed": 1,
+  "recall": [
+   0.138,
+   0.278,
+   0.346,
+   0.406,
+   0.452
+  ],
+  "shortlist": 60000,
+  "sim_passes": 2.09,
+  "scored": [
+   0.99,
+   0.29,
+   0.28,
+   0.27,
+   0.26
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 5.0,
+  "seed": 2,
+  "recall": [
+   0.154,
+   0.266,
+   0.326,
+   0.396,
+   0.46
+  ],
+  "shortlist": 60000,
+  "sim_passes": 2.09,
+  "scored": [
+   0.99,
+   0.29,
+   0.28,
+   0.27,
+   0.26
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 10.0,
+  "seed": 0,
+  "recall": [
+   0.134,
+   0.23,
+   0.314,
+   0.386,
+   0.43
+  ],
+  "shortlist": 120000,
+  "sim_passes": 3.29,
+  "scored": [
+   0.99,
+   0.59,
+   0.58,
+   0.57,
+   0.56
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 10.0,
+  "seed": 1,
+  "recall": [
+   0.138,
+   0.278,
+   0.346,
+   0.406,
+   0.458
+  ],
+  "shortlist": 120000,
+  "sim_passes": 3.29,
+  "scored": [
+   0.99,
+   0.59,
+   0.58,
+   0.57,
+   0.56
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "mult": 10.0,
+  "seed": 2,
+  "recall": [
+   0.154,
+   0.266,
+   0.318,
+   0.388,
+   0.446
+  ],
+  "shortlist": 120000,
+  "sim_passes": 3.29,
+  "scored": [
+   0.99,
+   0.59,
+   0.58,
+   0.57,
+   0.56
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": null,
+  "seed": 0,
+  "recall": [
+   0.36666666666666664,
+   0.6791666666666667,
+   0.7854166666666667,
+   0.8354166666666667,
+   0.8625
+  ],
+  "shortlist": 192000,
+  "sim_passes": 4.85,
+  "scored": [
+   0.99,
+   0.98,
+   0.97,
+   0.96,
+   0.95
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": null,
+  "seed": 1,
+  "recall": [
+   0.42916666666666664,
+   0.6979166666666666,
+   0.7708333333333334,
+   0.8166666666666667,
+   0.85625
+  ],
+  "shortlist": 192000,
+  "sim_passes": 4.85,
+  "scored": [
+   0.99,
+   0.98,
+   0.97,
+   0.96,
+   0.95
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": null,
+  "seed": 2,
+  "recall": [
+   0.3875,
+   0.6666666666666666,
+   0.78125,
+   0.8333333333333334,
+   0.8541666666666666
+  ],
+  "shortlist": 192000,
+  "sim_passes": 4.85,
+  "scored": [
+   0.99,
+   0.98,
+   0.97,
+   0.96,
+   0.95
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 1.1,
+  "seed": 0,
+  "recall": [
+   0.36666666666666664,
+   0.6729166666666667,
+   0.7583333333333333,
+   0.7854166666666667,
+   0.8083333333333333
+  ],
+  "shortlist": 12672,
+  "sim_passes": 1.1540000000000001,
+  "scored": [
+   0.99,
+   0.056,
+   0.046,
+   0.036,
+   0.026
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 1.1,
+  "seed": 1,
+  "recall": [
+   0.42916666666666664,
+   0.6958333333333333,
+   0.7604166666666666,
+   0.80625,
+   0.8395833333333333
+  ],
+  "shortlist": 12672,
+  "sim_passes": 1.1540000000000001,
+  "scored": [
+   0.99,
+   0.056,
+   0.046,
+   0.036,
+   0.026
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 1.1,
+  "seed": 2,
+  "recall": [
+   0.3875,
+   0.6666666666666666,
+   0.7708333333333334,
+   0.8020833333333334,
+   0.8270833333333333
+  ],
+  "shortlist": 12672,
+  "sim_passes": 1.1540000000000001,
+  "scored": [
+   0.99,
+   0.056,
+   0.046,
+   0.036,
+   0.026
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 1.25,
+  "seed": 0,
+  "recall": [
+   0.36666666666666664,
+   0.6770833333333334,
+   0.7729166666666667,
+   0.8,
+   0.8125
+  ],
+  "shortlist": 14400,
+  "sim_passes": 1.1899999999999997,
+  "scored": [
+   0.99,
+   0.065,
+   0.055,
+   0.045,
+   0.035
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 1.25,
+  "seed": 1,
+  "recall": [
+   0.42916666666666664,
+   0.69375,
+   0.7708333333333334,
+   0.8083333333333333,
+   0.8416666666666667
+  ],
+  "shortlist": 14400,
+  "sim_passes": 1.1899999999999997,
+  "scored": [
+   0.99,
+   0.065,
+   0.055,
+   0.045,
+   0.035
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 1.25,
+  "seed": 2,
+  "recall": [
+   0.3875,
+   0.6666666666666666,
+   0.7666666666666667,
+   0.8041666666666667,
+   0.8270833333333333
+  ],
+  "shortlist": 14400,
+  "sim_passes": 1.1899999999999997,
+  "scored": [
+   0.99,
+   0.065,
+   0.055,
+   0.045,
+   0.035
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 1.5,
+  "seed": 0,
+  "recall": [
+   0.36666666666666664,
+   0.6791666666666667,
+   0.7791666666666667,
+   0.8083333333333333,
+   0.8208333333333333
+  ],
+  "shortlist": 17280,
+  "sim_passes": 1.2500000000000002,
+  "scored": [
+   0.99,
+   0.08,
+   0.07,
+   0.06,
+   0.05
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 1.5,
+  "seed": 1,
+  "recall": [
+   0.42916666666666664,
+   0.69375,
+   0.7583333333333333,
+   0.8083333333333333,
+   0.8395833333333333
+  ],
+  "shortlist": 17280,
+  "sim_passes": 1.2500000000000002,
+  "scored": [
+   0.99,
+   0.08,
+   0.07,
+   0.06,
+   0.05
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 1.5,
+  "seed": 2,
+  "recall": [
+   0.3875,
+   0.6625,
+   0.7666666666666667,
+   0.8083333333333333,
+   0.8354166666666667
+  ],
+  "shortlist": 17280,
+  "sim_passes": 1.2500000000000002,
+  "scored": [
+   0.99,
+   0.08,
+   0.07,
+   0.06,
+   0.05
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 2.0,
+  "seed": 0,
+  "recall": [
+   0.36666666666666664,
+   0.6791666666666667,
+   0.7729166666666667,
+   0.8125,
+   0.825
+  ],
+  "shortlist": 23040,
+  "sim_passes": 1.3700000000000003,
+  "scored": [
+   0.99,
+   0.11,
+   0.1,
+   0.09,
+   0.08
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 2.0,
+  "seed": 1,
+  "recall": [
+   0.42916666666666664,
+   0.6958333333333333,
+   0.7645833333333333,
+   0.8125,
+   0.8458333333333333
+  ],
+  "shortlist": 23040,
+  "sim_passes": 1.3700000000000003,
+  "scored": [
+   0.99,
+   0.11,
+   0.1,
+   0.09,
+   0.08
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 2.0,
+  "seed": 2,
+  "recall": [
+   0.3875,
+   0.6666666666666666,
+   0.7729166666666667,
+   0.8208333333333333,
+   0.8416666666666667
+  ],
+  "shortlist": 23040,
+  "sim_passes": 1.3700000000000003,
+  "scored": [
+   0.99,
+   0.11,
+   0.1,
+   0.09,
+   0.08
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 5.0,
+  "seed": 0,
+  "recall": [
+   0.36666666666666664,
+   0.6791666666666667,
+   0.78125,
+   0.8333333333333334,
+   0.8541666666666666
+  ],
+  "shortlist": 57600,
+  "sim_passes": 2.09,
+  "scored": [
+   0.99,
+   0.29,
+   0.28,
+   0.27,
+   0.26
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 5.0,
+  "seed": 1,
+  "recall": [
+   0.42916666666666664,
+   0.6979166666666666,
+   0.7708333333333334,
+   0.81875,
+   0.8541666666666666
+  ],
+  "shortlist": 57600,
+  "sim_passes": 2.09,
+  "scored": [
+   0.99,
+   0.29,
+   0.28,
+   0.27,
+   0.26
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 5.0,
+  "seed": 2,
+  "recall": [
+   0.3875,
+   0.6666666666666666,
+   0.78125,
+   0.8354166666666667,
+   0.85625
+  ],
+  "shortlist": 57600,
+  "sim_passes": 2.09,
+  "scored": [
+   0.99,
+   0.29,
+   0.28,
+   0.27,
+   0.26
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 10.0,
+  "seed": 0,
+  "recall": [
+   0.36666666666666664,
+   0.6791666666666667,
+   0.7854166666666667,
+   0.8354166666666667,
+   0.8604166666666667
+  ],
+  "shortlist": 115200,
+  "sim_passes": 3.29,
+  "scored": [
+   0.99,
+   0.59,
+   0.58,
+   0.57,
+   0.56
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 10.0,
+  "seed": 1,
+  "recall": [
+   0.42916666666666664,
+   0.6979166666666666,
+   0.7708333333333334,
+   0.8166666666666667,
+   0.85625
+  ],
+  "shortlist": 115200,
+  "sim_passes": 3.29,
+  "scored": [
+   0.99,
+   0.59,
+   0.58,
+   0.57,
+   0.56
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "mult": 10.0,
+  "seed": 2,
+  "recall": [
+   0.3875,
+   0.6666666666666666,
+   0.78125,
+   0.8333333333333334,
+   0.8541666666666666
+  ],
+  "shortlist": 115200,
+  "sim_passes": 3.29,
+  "scored": [
+   0.99,
+   0.59,
+   0.58,
+   0.57,
+   0.56
+  ]
+ }
+]

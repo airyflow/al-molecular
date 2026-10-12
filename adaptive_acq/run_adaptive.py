@@ -58,6 +58,10 @@ def parse_args():
                         "exp(w * standardized score), focusing fit on the good tail the top-k metric cares about")
     p.add_argument("--diversity-backbone", default="molformer",
                    help="whose embeddings define similarity for --diversity-lambda (and the batch_redundancy log)")
+    p.add_argument("--prefilter-mult", type=float, default=0.0,
+                   help='"score once, then refine": > 0 scores the full pool in round 1, keeps the top '
+                        "PREFILTER_MULT x total labeling budget, and only refines within it thereafter. "
+                        "0 = score the whole pool every round.")
     add_controller_args(p)
     return p.parse_args()
 
@@ -95,6 +99,7 @@ def main():
     explorer = AdaptiveMVEExplorer(
         controller=build_controller(args), beta_scale=args.beta_scale,
         diversity_lambda=args.diversity_lambda, shortlist_mult=args.shortlist_mult,
+        prefilter_mult=args.prefilter_mult,
         diversity_backbone=args.diversity_backbone,
         emb_dict=emb_dict, pool_smiles=pool_smiles, oracle=oracle,
         surrogate_type=args.surrogate, backbone=backbones[0],

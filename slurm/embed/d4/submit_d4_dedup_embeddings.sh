@@ -56,6 +56,11 @@ mkdir -p logs
 
 D4_ROOT="/N/project/SingleCell_Image/mengjing/d4_138M"
 mkdir -p "$D4_ROOT/dedup"
+# Stripe the output folder across all storage servers before the file is
+# created: files written without this land on ONE server (stripe count 1),
+# which is what every dedup/*.npy had until 2026-10-12, capping reads at a
+# single server's bandwidth for every later job (PCA, LT-All rounds).
+lfs setstripe -c -1 "$D4_ROOT/dedup"
 
 python embed/stitch/dedup_embeddings.py \
     --backbone "$BACKBONE" --dim "$DIM" \

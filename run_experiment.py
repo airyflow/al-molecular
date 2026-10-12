@@ -410,7 +410,7 @@ class MVEExplorer:
         self, emb_dict, pool_smiles, oracle, surrogate_type, backbone, acq,
         init_size=8417, batch_size=8417, n_rounds=5, topk=1000,
         run_dir=None, seed=42, usable_mask=None,
-        surrogate_epochs=None, surrogate_batch=None,
+        surrogate_epochs=None, surrogate_batch=None, surrogate_kwargs=None,
         resume_scores=None, resume_round=0,
     ):
         from molpal.models import mve as build_mve
@@ -441,6 +441,7 @@ class MVEExplorer:
         self.model = build_mve(
             surrogate_type=surrogate_type, backbone=backbone, emb_dict=emb_dict,
             pool_smiles=pool_smiles, dataset_name=DATASET,
+            surrogate_kwargs=surrogate_kwargs,
         )
 
         self.acq_fn = get_metric(acq)

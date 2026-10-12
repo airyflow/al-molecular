@@ -1629,6 +1629,7 @@ class LTAllSurrogate:
         batch: int = 8192,
         tau: float = 1.0,
         M: int = 5,
+        top_weight: float = 0.0,
     ):
         self._dims = dims
         self._keys = list(dims.keys())
@@ -1639,6 +1640,11 @@ class LTAllSurrogate:
         self._batch = batch
         self._tau = tau
         self._M = M
+        # top_weight > 0 trains with weights exp(top_weight * y_std) (mean-1
+        # normalized per batch) instead of plain MSE: the metric is top-k
+        # recall, so fit near the good tail matters and fit on the mediocre
+        # bulk does not. 0 reproduces the paper's plain MSE exactly.
+        self._top_weight = top_weight
         self._models = []
         self._ym = self._ys = None
 
@@ -1665,7 +1671,11 @@ class LTAllSurrogate:
                 opt.zero_grad()
                 with torch.autocast(device_type=DEVICE.type, dtype=torch.bfloat16 if (use_amp and torch.cuda.is_bf16_supported()) else torch.float16, enabled=use_amp):
                     pred = model(xb)
-                    loss = F.mse_loss(pred, yb)
+                    if self._top_weight > 0:
+                        w = torch.exp(self._top_weight * yb)
+                        loss = ((w / w.mean()) * (pred - yb) ** 2).mean()
+                    else:
+                        loss = F.mse_loss(pred, yb)
                 scaler.scale(loss).backward()
                 scaler.unscale_(opt)
                 nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)

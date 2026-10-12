@@ -50,6 +50,12 @@ def parse_args():
     p.add_argument("--pool-limit", type=int, default=None, help="smoke testing only")
     p.add_argument("--surrogate-epochs", type=int, default=None)
     p.add_argument("--surrogate-batch", type=int, default=None)
+    p.add_argument("--ltall-members", type=int, default=None,
+                   help="LT-All ensemble size M (default 5; the paper does not state M -- see "
+                        "LTAllSurrogate docstring). Training is ~5%% of a round, so raising it is nearly free.")
+    p.add_argument("--ltall-top-weight", type=float, default=None,
+                   help="LT-All training loss: 0 = plain MSE (paper), > 0 weights each molecule by "
+                        "exp(w * standardized score), focusing fit on the good tail the top-k metric cares about")
     p.add_argument("--diversity-backbone", default="molformer",
                    help="whose embeddings define similarity for --diversity-lambda (and the batch_redundancy log)")
     add_controller_args(p)
@@ -77,6 +83,12 @@ def main():
     pool_smiles = [pool_smiles[i] for i in keep_idx]
     print(f"[pool] {len(pool_smiles):,} molecules with embeddings + oracle scores")
 
+    surrogate_kwargs = {}
+    if args.ltall_members is not None:
+        surrogate_kwargs["M"] = args.ltall_members
+    if args.ltall_top_weight is not None:
+        surrogate_kwargs["top_weight"] = args.ltall_top_weight
+
     run_dir = Path(args.run_dir)
     resume_round, resume_scores = exp.find_resume_checkpoint(run_dir) if args.resume else (0, None)
 
@@ -89,6 +101,7 @@ def main():
         init_size=args.init_size, batch_size=args.batch_size, n_rounds=args.n_rounds,
         topk=args.topk, run_dir=run_dir, seed=args.seed,
         surrogate_epochs=args.surrogate_epochs, surrogate_batch=args.surrogate_batch,
+        surrogate_kwargs=surrogate_kwargs,
         resume_scores=resume_scores, resume_round=resume_round,
     )
     history = explorer.run()

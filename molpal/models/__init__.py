@@ -111,6 +111,7 @@ def mve(
     backbone: str = "molformer",
     emb_dict: Optional[Dict[str, np.ndarray]] = None,
     pool_smiles: Optional[List[str]] = None,
+    surrogate_kwargs: Optional[dict] = None,
     **kwargs,
 ) -> Model:
     """MVE surrogate model factory backed by ALSU surrogates.
@@ -173,7 +174,7 @@ def mve(
         return EmbeddingMVEModel(surrogate, emb_dict, pool_smiles, **kwargs)
 
     if surrogate_type == "ltall":
-        surrogate = LTAllSurrogate(dims=dims)
+        surrogate = LTAllSurrogate(dims=dims, **(surrogate_kwargs or {}))
         return EmbeddingMVEModel(surrogate, emb_dict, pool_smiles, **kwargs)
 
     if surrogate_type == "learned":

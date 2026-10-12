@@ -91,6 +91,45 @@ policy could gain on ENHITS/LT-All is about +0.005 recall, so learned β
 controllers (bandit/PPO) are not justified here. The usable finding is a fixed
 rule (β ≈ 0.1–0.3 at batches ≥ 0.2%), which still needs replicating on new seeds.
 
+### Real-pool results: surrogate sweep and prefilter (2026-10-12)
+
+**Surrogate sweep — NO-GO** (`surrogate_sweep.py`, 4 arms x 5 seeds, paired
+against LT-All greedy 0.8764). Round-5 diff [95% CI]: `m15` +0.0014 [-0.0013,
++0.0041]; `tw0.5` +0.0036 [-0.0059, +0.0131]; `tw1.0` +0.0060 [-0.0019,
++0.0139]; `m15_tw1.0` +0.0038 [-0.0069, +0.0145]. The top-weighted loss has
+the largest mean and clears the +0.005 margin, but its CI includes 0, so under
+the pre-registered rule this is not a GO. Note `m15`'s CI is tight around zero:
+a bigger LT-All ensemble genuinely does nothing. Every `tw` arm has a negative
+AUC with a positive round-5 diff -- upweighting the tail costs early rounds
+(the initial labeled set is random, so upweighting discards effective data)
+and repays later.
+
+**Prefilter — real loss is far larger than the simulator predicted**
+(`prefilter_real.py`, 3 arms x 5 seeds). Measured, not extrapolated:
+
+| arm | shortlist | r5 diff [95% CI] | passes | speedup | wall clock |
+|---|---|---|---|---|---|
+| control | full | — | 5.00 | 1× | 386 s |
+| `pf2` | 2x budget | −0.0824 [−0.1311, −0.0337] | 1.04 | 4.8× | 91 s |
+| `pf5` | 5x budget | −0.0080 [−0.0136, −0.0024] | 1.11 | 4.5× | 91 s |
+| `pf10` | 10x budget | −0.0040 [−0.0086, +0.0006] | 1.23 | 4.1× | 95 s |
+
+Per-round, the loss compounds as the frozen shortlist ages (pf2: 0.000,
+−0.008, −0.045, −0.070, −0.082). pf2's shortlist is simply exhausted of good
+unlabeled molecules by round 4. None of the three clears the non-inferiority
+bound, though `pf10` is close: **~4.1x less scoring for ~0.004 recall** — a
+real cost lever with a small price, not the free lunch the simulator implied.
+At 13B that is ~600 GPU-hours of scoring reduced to ~148.
+
+**Methodological caveat — the simulator badly understates prefilter loss.**
+Its ENHITS tasks predicted ~0.000 at pf2 where the real pool lost 0.082. The
+reason: the simulator labels 6% of its pool, so it is already at 0.67 of a
+0.974 ceiling after round 1 and its round-1 ranking is near-final; the real
+campaign runs 0.26 -> 0.88, so round-1 ranking is a poor guide to what later
+rounds want. The simulator was calibrated on learning *curves*, which does not
+make it valid for questions about *ranking dynamics across rounds*. Treat its
+verdicts on anything that freezes or reuses an early ranking as optimistic.
+
 ### "Score once, then refine" — the cost axis (simulator, 2026-10-12)
 
 `prefilter_sim.py`. Measured on ENHITS: a round is ~70 s, of which only 3-6 s

@@ -180,3 +180,28 @@ def test_prefilter_restricts_scoring_and_is_noop_when_off(task):
     assert on[-1]["scored_frac"] < 0.5 * off[-1]["scored_frac"]  # later rounds score far less
     assert sum(r["scored_frac"] for r in on) < sum(r["scored_frac"] for r in off)
     assert on[-1]["n_labeled"] == off[-1]["n_labeled"]        # same budget spent
+
+
+def test_prefilter_refresh_rescans_pool_and_rebuilds(task):
+    static = run_episode(task, FixedBeta(0.0), seed=0, batch_frac=0.01, topk_frac=0.01, prefilter_mult=2.0)
+    refr = run_episode(task, FixedBeta(0.0), seed=0, batch_frac=0.01, topk_frac=0.01,
+                       prefilter_mult=2.0, prefilter_refresh=3)
+    # round 3 re-scores (nearly) the whole pool; the static arm does not
+    assert refr[2]["scored_frac"] > 5 * static[2]["scored_frac"]
+    assert refr[2]["scored_frac"] > 0.8
+    # rounds 4-5 are back on a shortlist, so still far cheaper than full scoring
+    assert refr[3]["scored_frac"] < 0.2 and refr[4]["scored_frac"] < 0.2
+    assert sum(r["scored_frac"] for r in refr) < 3.0   # vs ~5 for full scoring
+    assert refr[-1]["n_labeled"] == static[-1]["n_labeled"]
+
+
+def test_budget_is_fixed_not_recomputed(task):
+    """A refresh must not inflate the shortlist by counting labeled molecules twice."""
+    from adaptive_acq.campaign import Campaign
+    import numpy as _np
+    c = Campaign(n_pool=1000, fit_predict=lambda *a: (_np.zeros(1), _np.zeros(1)),
+                 score_fn=lambda idx: _np.zeros(len(idx)), init_idx=_np.arange(10),
+                 batch_size=10, n_rounds=5, k_obs=5)
+    b0 = c.budget()
+    c.labeled_idx = _np.arange(40)          # pretend several rounds have happened
+    assert c.budget() == b0 == 10 + 10 * 5

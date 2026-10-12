@@ -32,6 +32,7 @@ class Campaign:
         start_round: int = 0,
         hit_thr: Optional[float] = None,
         prefilter_mult: float = 0.0,
+        prefilter_refresh: int = 0,
         diversity_lambda: float = 0.0,
         shortlist_mult: int = 10,
         feats_fn: Optional[Callable] = None,
@@ -55,6 +56,11 @@ class Campaign:
             rounds only ever consider that shortlist. Cuts pool-scoring cost,
             the dominant cost at billion scale. 0 = score everything each
             round (original behavior).
+        prefilter_refresh: round number (1-indexed) at which to throw the
+            shortlist away, re-score the whole pool, and rebuild it from the
+            now better-trained surrogate. 0 = never (one static shortlist).
+            Costs one extra full pass but targets the compounding loss a
+            frozen round-1 shortlist accumulates.
         diversity_lambda: > 0 selects each batch by greedy max-marginal
             relevance (acquisition.select_diverse) on the controller's UCB
             score instead of plain top-k; needs a single-arm plan and
@@ -70,6 +76,7 @@ class Campaign:
         self.start_round = start_round
         self.diversity_lambda, self.shortlist_mult, self.feats_fn = diversity_lambda, shortlist_mult, feats_fn
         self.prefilter_mult = prefilter_mult
+        self.prefilter_refresh = prefilter_refresh
         self.shortlist = None  # bool mask over the pool once fixed (prefilter_mult > 0)
         if diversity_lambda > 0 and feats_fn is None:
             raise ValueError("diversity_lambda > 0 needs feats_fn")
@@ -78,6 +85,7 @@ class Campaign:
         self.labeled = np.zeros(n_pool, dtype=bool)
         self.labeled[init_idx] = True
         self.labeled_idx = init_idx.copy()
+        self._budget = int(len(init_idx) + batch_size * (n_rounds - start_round))
         self.labeled_y = np.asarray(score_fn(init_idx), dtype=np.float64)
         self.hit_thr = hit_threshold(self.labeled_y) if hit_thr is None else float(hit_thr)
         self.last: Optional[LastBatch] = None
@@ -96,8 +104,11 @@ class Campaign:
         return np.flatnonzero(avail)
 
     def budget(self) -> int:
-        """Total molecules this campaign will label (init + one batch per round)."""
-        return int(len(self.labeled_idx) + self.batch_size * (self.n_rounds - self.start_round))
+        """Total molecules this campaign will label (init + one batch per round).
+        Fixed at construction: recomputing it later (as a shortlist refresh
+        does) would count already-labeled molecules twice and inflate the
+        shortlist."""
+        return self._budget
 
     def _set_shortlist(self, mu, cand):
         size = min(self.n_pool, int(round(self.prefilter_mult * self.budget())))
@@ -110,6 +121,8 @@ class Campaign:
 
     def step(self, controller, rnd: int) -> dict:
         t0 = time.perf_counter()
+        if self.prefilter_refresh and rnd + 1 == self.prefilter_refresh:
+            self.shortlist = None  # re-score the full pool and rebuild below
         cand = self._candidates()
         mu, sigma = self.fit_predict(self.labeled_idx, -self.labeled_y, cand)
         mu = np.asarray(mu, dtype=np.float64)

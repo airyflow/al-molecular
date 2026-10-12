@@ -52,7 +52,8 @@ def ci(d):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--runs", default="runs/adaptive")
-    p.add_argument("--mults", type=float, nargs="+", default=[2, 5, 10])
+    p.add_argument("--arms", nargs="+", default=None,
+                   help="arm names under runs/adaptive/prefilter (default: discover them)")
     p.add_argument("--seeds", type=int, nargs="+", default=list(SEEDS))
     args = p.parse_args()
     R, P = Path(args.runs), Path(args.runs) / "prefilter"
@@ -66,10 +67,18 @@ def main():
           f"passes={np.mean([ctrl[s]['passes'] for s in have]):.2f}  "
           f"{np.mean([ctrl[s]['sec'] for s in have]):.0f}s/run\n")
 
-    print(f"{'arm':6s} {'n':>2}  {'r5 diff [95% CI]':30s} {'passes':>7} {'speedup':>8} {'sec':>7} {'verdict'}")
+    arms = args.arms
+    if arms is None:
+        import re
+        arms = sorted({re.sub(r"_frac[\d.]+_seed\d+$", "", d.name) for d in P.glob("*_frac*_seed*")
+                       if d.is_dir()},
+                      key=lambda a: (len(a), a))
+    if not arms:
+        raise SystemExit(f"no arms found under {P}")
+
+    print(f"{'arm':8s} {'n':>2}  {'r5 diff [95% CI]':30s} {'passes':>7} {'speedup':>8} {'sec':>7} {'verdict'}")
     ok = []
-    for mult in args.mults:
-        name = f"pf{int(mult) if float(mult).is_integer() else mult}"
+    for name in arms:
         d5, passes, secs = [], [], []
         for s in have:
             r = load(P / f"{name}_frac0.001_seed{s}")
@@ -79,7 +88,7 @@ def main():
             passes.append(r["passes"])
             secs.append(r["sec"])
         if not d5:
-            print(f"{name:6s}  -  (no finished runs yet)")
+            print(f"{name:8s}  -  (no finished runs yet)")
             continue
         d5 = np.array(d5)
         lo, hi = ci(d5)
@@ -89,7 +98,7 @@ def main():
             "worse" if hi < 0 else "inconclusive")
         if verdict == "acceptable":
             ok.append((name, sp, d5.mean()))
-        print(f"{name:6s} {len(d5):>2}  {d5.mean():+.4f} [{lo:+.4f}, {hi:+.4f}]   "
+        print(f"{name:8s} {len(d5):>2}  {d5.mean():+.4f} [{lo:+.4f}, {hi:+.4f}]   "
               f"{np.mean(passes):>7.2f} {sp:>7.1f}x {np.mean(secs):>7.0f} {verdict}")
 
     print(f"\nNon-inferiority margin: CI must contain 0 with lower bound > -{MARGIN}.")

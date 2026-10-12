@@ -188,7 +188,7 @@ def make_surrogate(kind, seed):
 
 def run_episode(task, controller, seed, surrogate="ridge", batch_frac=SIM_BATCH_FRAC, topk_frac=SIM_TOPK_FRAC,
                 n_rounds=5, beta_scale="normalized", counterfactual=False, diversity_lambda=0.0,
-                shortlist_mult=10, prefilter_mult=0.0):
+                shortlist_mult=10, prefilter_mult=0.0, prefilter_refresh=0):
     """One simulated campaign. Same seed -> same initial labeled set, which is
     what makes a GRPO group (several rollouts from one start) well-defined."""
     n = len(task)
@@ -203,7 +203,7 @@ def run_episode(task, controller, seed, surrogate="ridge", batch_frac=SIM_BATCH_
         score_fn=lambda idx: task.y[idx], init_idx=init, batch_size=batch, n_rounds=n_rounds,
         k_obs=k, beta_scale=beta_scale, true_top_mask=true_top, counterfactual=counterfactual,
         diversity_lambda=diversity_lambda, shortlist_mult=shortlist_mult, feats_fn=lambda idx: task.X[idx],
-        prefilter_mult=prefilter_mult,
+        prefilter_mult=prefilter_mult, prefilter_refresh=prefilter_refresh,
     )
     return camp.run(controller)
 

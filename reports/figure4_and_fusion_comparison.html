@@ -1145,12 +1145,28 @@ footer {
         <tr><td>D4, bs1024, round 2 (two runs)</td><td class="num">929,808</td><td class="num">31,450 s / 18,973 s</td><td class="num">1,478 / 2,450</td></tr>
         <tr><td>D4, bs1024, round 3 (two runs)</td><td class="num">1,394,712</td><td class="num">28,873 s / 29,798 s</td><td class="num">2,415 / 2,340</td></tr>
         <tr><td>D4, bs1024, round 4</td><td class="num">1,859,616</td><td class="num">38,271 s</td><td class="num">2,430</td></tr>
+        <tr><td>D4, bs1024, round 5</td><td class="num">2,324,520</td><td class="num">40,101 s</td><td class="num">2,898</td></tr>
         <tr><td>AmpC, bs50, rounds 2&ndash;5 (&sect;15)</td><td class="num">787,914&ndash;1,969,785</td><td class="num">23,274&ndash;59,863 s</td><td class="num">1,645&ndash;2,113</td></tr>
       </tbody>
     </table>
   </div>
   <div class="callout">
-    <b>Batch size 1024 gave at most a 1.2&ndash;1.4&times; speedup, not the large gain expected.</b> Steady-state throughput settled near 2,400 molecule-epochs/s, against 1,650&ndash;2,100 for AmpC at batch size 50 (one AmpC round-1 run reached 2,483). Two early D4 rounds were slower (806 and 1,478) and their repeats were not, so those likely reflect node or filesystem conditions rather than batch size. This comparison crosses datasets and nodes, so it is approximate, but it is enough to reject &sect;15's earlier conclusion that per-step overhead at batch size 50 was the main cost. A direct profile (&sect;15) found the data loader &mdash; per-epoch graph building plus restarting its worker processes every epoch &mdash; takes 63&ndash;75% of each epoch, so batch size can only touch the remainder.
+    <b>Batch size 1024 gave at most a 1.2&ndash;1.4&times; speedup, not the large gain expected.</b> Steady-state throughput settled near 2,400&ndash;2,900 molecule-epochs/s, against 1,650&ndash;2,100 for AmpC at batch size 50 (one AmpC round-1 run reached 2,483). Two early D4 rounds were slower (806 and 1,478) and their repeats were not, so those likely reflect node or filesystem conditions rather than batch size. This comparison crosses datasets and nodes, so it is approximate, but it is enough to reject &sect;15's earlier conclusion that per-step overhead at batch size 50 was the main cost. A direct profile (&sect;15) found the data loader &mdash; per-epoch graph building plus restarting its worker processes every epoch &mdash; takes 63&ndash;75% of each epoch, so batch size can only touch the remainder.
+  </div>
+
+  <h4>Controlled comparison: same molecules, same node</h4>
+  <div class="prose"><p>Profile job 11926365 (<code>probe_mpn_training.py</code>): the first 200,000 D4 molecules, one H100 node, 8 data-loader workers (as in the real runs), 2 epochs at each batch size. Only batch size differs, so this is the clean measure of its effect.</p></div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th class="num">Batch size</th><th class="num">Epoch time</th><th class="num">Molecule-epochs/s</th><th class="num">Data loader alone</th><th class="num">Share of epoch</th><th class="num">First batch after</th></tr></thead>
+      <tbody>
+        <tr><td class="num">50</td><td class="num">146.8 s</td><td class="num">1,362</td><td class="num">110.4 s</td><td class="num">75%</td><td class="num">56.1 s</td></tr>
+        <tr><td class="num">1024</td><td class="num">134.7 s</td><td class="num">1,485</td><td class="num">84.8 s</td><td class="num">63%</td><td class="num">40.3 s</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout">
+    <b>On identical data and hardware, batch size 1024 is 1.09&times; faster than 50.</b> Each epoch is dominated by the data loader on the CPU: molecular graphs are rebuilt from SMILES every epoch (caching them was ruled out at ~15 TB for AmpC), and the 8 loader workers are restarted every epoch and handed the whole dataset again, which alone delays the first batch by 40&ndash;56 s here and grows with the training set. Batch size only reduces the GPU-side step overhead, a minority of each epoch. Its effect on recall is unknown: D4 MPN at batch size 1024 reached 69.2% (vs. 76.9% for LT-All), but there is no batch-size-50 D4 MPN run to compare against. Likely faster options, none yet measured: keep loader workers alive between epochs (<code>persistent_workers=True</code> in <code>MoleculeDataLoader</code>), and use all 16 requested CPUs as loader workers instead of 8. Faster GPU arithmetic, such as mixed precision, would help little, since the GPU is not the bottleneck.
   </div>
 
   <h3>Engineering notes</h3>

@@ -96,7 +96,15 @@ class EmbeddingMVEModel(Model):
         else:
             base = idxs[0]
             mismatches = [i for i, v in enumerate(idxs) if v != base + i]
-            if not mismatches:
+            pool_len = len(next(iter(self.emb_dict.values())))
+            if base + n > pool_len:
+                # The expected contiguous range would run off the end of the
+                # pool (emb[sl] silently comes back short), which only happens
+                # for a non-contiguous request, e.g. a random labeled set whose
+                # first index is within n rows of the end -- crashed
+                # fusionfix_*_frac0.004_seed42 with an IndexError. Scatter.
+                parts = [emb[idxs] for emb in self.emb_dict.values()]
+            elif not mismatches:
                 sl = slice(base, base + n)
                 parts = [emb[sl] for emb in self.emb_dict.values()]
             elif len(mismatches) < n:  # at least one row still lines up -- patch beats a full scatter

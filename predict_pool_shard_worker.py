@@ -144,7 +144,14 @@ def main():
         t0 = time.perf_counter()
         model.surrogate = torch.load(ckpt_path, map_location=exp.DEVICE, weights_only=False)
 
-        mu, var = exp._chunked_get_means_and_vars(model, shard_smiles)
+        if hasattr(model.surrogate, "combine"):
+            # Rank-based fusion: ranks over this shard alone would be wrong
+            # (every shard gets its own rank 1) -- save raw per-backbone means
+            # and let the orchestrator rank once over the gathered pool.
+            mu = exp._chunked_predict_components(model, shard_smiles)
+            var = np.zeros(len(shard_smiles), dtype=np.float32)
+        else:
+            mu, var = exp._chunked_get_means_and_vars(model, shard_smiles)
         np.save(mu_path, mu)
         np.save(var_path, var)
         done_path.touch()

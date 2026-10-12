@@ -298,7 +298,17 @@ def _chunked_get_means_and_vars(model, pool_smi: list) -> tuple:
     involved -- confirmed as the actual cause of the fusion-mode OOMs
     (separate from the earlier node-sharing OOM). Chunking here bounds each
     _get_X() call to POOL_PREDICT_CHUNK molecules regardless of surrogate.
+
+    Rank-based surrogates (EnsembleFusion/BigFusion, which define combine())
+    are predicted per chunk as raw per-backbone means and ranked once over
+    the whole pool -- ranking inside each chunk's predict() gave every 50k
+    chunk its own "rank 1", spreading each batch evenly across chunks
+    regardless of where the good molecules are.
     """
+    surrogate = getattr(model, "surrogate", None)
+    if hasattr(surrogate, "combine"):
+        mu, sigma = surrogate.combine(_chunked_predict_components(model, pool_smi))
+        return mu, sigma ** 2
     mu_chunks, var_chunks = [], []
     for start in range(0, len(pool_smi), POOL_PREDICT_CHUNK):
         chunk = pool_smi[start : start + POOL_PREDICT_CHUNK]
@@ -306,6 +316,16 @@ def _chunked_get_means_and_vars(model, pool_smi: list) -> tuple:
         mu_chunks.append(mu)
         var_chunks.append(var)
     return np.concatenate(mu_chunks), np.concatenate(var_chunks)
+
+
+def _chunked_predict_components(model, pool_smi: list) -> np.ndarray:
+    """(n, n_components) per-backbone means for a rank-based surrogate,
+    chunked exactly like _chunked_get_means_and_vars. Ranking happens later,
+    in surrogate.combine(), over the full candidate set."""
+    return np.concatenate([
+        model.surrogate.predict_components(model._get_X(pool_smi[start : start + POOL_PREDICT_CHUNK]))
+        for start in range(0, len(pool_smi), POOL_PREDICT_CHUNK)
+    ])
 
 
 # Self-featurizing model types (get_means/get_means_and_vars take raw SMILES
@@ -885,6 +905,11 @@ class ParallelMVEExplorer(MVEExplorer):
             # already-labeled molecules) every round -- simpler and more
             # robust than keeping N workers' notion of "still unlabeled" in
             # sync with this process's growing labeled set. Mask afterward.
+            # Rank-based surrogates: workers save raw per-backbone means
+            # (n_shard, n_components) instead of mu -- ranks are only valid
+            # over the gathered pool, so combine() runs here, once, after
+            # masking (see _chunked_get_means_and_vars).
+            rank_based = hasattr(self.model.surrogate, "combine")
             mu_parts, var_parts = [], []
             for shard_id in range(self.num_shards):
                 if shard_id in self.exclude_shard_ids:
@@ -893,7 +918,8 @@ class ParallelMVEExplorer(MVEExplorer):
                     # matching the full pool (usable_mask guarantees this
                     # range is never selected regardless of placeholder value).
                     s, e = _chunk_bounds(n, shard_id, self.num_shards)
-                    mu_parts.append(np.zeros(e - s, dtype=np.float32))
+                    shape = (e - s, self.model.surrogate.n_components) if rank_based else (e - s,)
+                    mu_parts.append(np.zeros(shape, dtype=np.float32))
                     var_parts.append(np.zeros(e - s, dtype=np.float32))
                     continue
                 done_path = self.coord_dir / f"round_{r}_shard_{shard_id}.done"
@@ -908,7 +934,11 @@ class ParallelMVEExplorer(MVEExplorer):
             for i in self.labeled_idx:
                 mask[i] = False
             pool_idx = np.where(mask)[0]
-            mu, var = mu_full[pool_idx], var_full[pool_idx]
+            if rank_based:
+                mu, sigma = self.model.surrogate.combine(mu_full[pool_idx])
+                var = sigma ** 2
+            else:
+                mu, var = mu_full[pool_idx], var_full[pool_idx]
 
             if self.acq_name in ("ucb", "lcb", "thompson", "ts", "ei", "pi"):
                 scores = self.acq_fn(mu, var)

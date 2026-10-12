@@ -50,6 +50,54 @@ combination but uses rank disagreement across backbones as real epistemic
 uncertainty (`UCB_score = -mean_rank + beta*std_rank`), so its greedy and
 UCB curves can actually differ.
 
+## Fusion surrogate bugs fixed 2026-10-10 (results before this date affected)
+
+Three bugs in the rank-based fusion surrogates (`EnsembleFusionSurrogate`,
+method [3], and `BigFusionSurrogate`), all fixed in `surrogates.py` /
+`run_experiment.py` / `predict_pool_shard_worker.py`, with regression tests in
+`tests/test_rank_fusion.py`:
+
+1. **Ensemble UCB was greedy.** `predict()` returned sigma = 0 and never used
+   `beta`, so the description above was not what ran: `runs/fusion_ucb_*` are
+   round-for-round identical to `runs/fusion_greedy_*`. It now returns
+   `mu = -mean_rank_norm`, `sigma = (beta/2) * std_rank_norm`, so `--acq ucb`
+   computes exactly `-mean_rank + beta*std_rank` (beta = 0.2).
+2. **Ranks were per chunk, not per pool.** Pool prediction runs in 50k
+   chunks (and, with `--parallel-predict`, per shard), and ranks were computed
+   inside each chunk, so every chunk had its own rank 1. Batches were spread
+   almost evenly across chunks regardless of where the hits were. The
+   surrogates now expose `predict_components()` (per-backbone means, safe to
+   chunk) and `combine()` (ranks once over the whole candidate pool).
+3. **Ties favored the end of the pool.** Per-backbone means come out of bf16
+   autocast, so ties are common, and `argsort(mu)[::-1]` gave the best rank in
+   each tie group to the highest pool index. Ties are now averaged.
+
+Without ties, greedy ordering over a whole pool is unchanged (tested). Confirmed
+affected: `runs/fusion_{greedy,ucb}_frac*` (launched with `--surrogate ensemble`
+by `slurm/al_runs/enamine/run_all_configs.sh`). Probably affected, but no
+script or log in the repo records how they were launched: `fusion5_*`,
+`fusion_unimol2_*`, `ampc_ensemble_*`. Corrected reruns are written as
+`runs/fusionfix_*`.
+
+Effect (EnamineHTS, top-1000 recall after round 5, mean ± std; pre-fix greedy
+is 3 seeds, pre-fix UCB 1 seed, fixed runs 5 seeds unless noted):
+
+| Batch | pre-fix greedy | fixed greedy | fixed UCB |
+|---|---|---|---|
+| 0.1% | 0.730 ± 0.011 | **0.788 ± 0.007** | 0.791 ± 0.011 |
+| 0.2% | 0.870 ± 0.008 | **0.906 ± 0.003** | 0.906 ± 0.007 |
+| 0.4% | 0.948 ± 0.001 | **0.961 ± 0.004** (4 seeds) | 0.967 (1 seed, more pending) |
+
+The fix gives +3.6 to +5.8 points of recall at 0.1-0.2% batches. With real
+uncertainty, UCB is now about tied with greedy (the difference is within
+seed-to-seed spread).
+
+A separate crash, also fixed: `EmbeddingMVEModel._get_X` (`molpal/models/mvemodels.py`)
+read a contiguous slice starting at the first requested index; when that
+index was within n rows of the end of the pool the slice came back short and
+the patch step raised `IndexError` (crashed `fusionfix_*_frac0.004_seed42`).
+It now falls back to plain indexing in that case.
+
 ## Known bug fixed here (not yet fixed upstream in FusionAL)
 
 `molpal/models/__init__.py`'s `mve()` factory derived the single-backbone

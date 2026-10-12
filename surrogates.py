@@ -336,22 +336,50 @@ class BigFusionSurrogate:
         for k in self._KEYS:
             self._surrogates[k].fit(parts[k], y, epochs=epochs, batch=batch)
 
-    def predict(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    @property
+    def n_components(self) -> int:
+        return len(self._KEYS)
+
+    def predict_components(self, X: np.ndarray) -> np.ndarray:
+        """Per-backbone predicted means, (n, n_components). Pointwise, so safe
+        to call chunk-by-chunk -- unlike predict(), whose ranks are only
+        meaningful over the whole candidate pool (see combine())."""
         parts = X if isinstance(X, dict) else self._split(X)
-        n     = len(next(iter(parts.values())))
+        return np.stack([self._surrogates[k].predict(parts[k])[0] for k in self._KEYS], axis=1)
 
+    def combine(self, comps: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Weighted Borda over ALL rows of comps. Callers that predict in
+        chunks or shards must concatenate predict_components() first and call
+        this once (run_experiment._chunked_get_means_and_vars does) --
+        ranking each chunk separately gives every chunk its own rank 1."""
+        n = len(comps)
         borda = np.zeros(n, dtype=np.float64)
-        for k in self._KEYS:
-            mu, _ = self._surrogates[k].predict(parts[k])
-            order = np.argsort(mu)[::-1]
-            ranks = np.empty(n)
-            ranks[order] = np.arange(1, n + 1)
-            borda += self._w[k] * ranks   # weighted Borda contribution
-
+        for j, k in enumerate(self._KEYS):
+            borda += self._w[k] * _desc_ranks(comps[:, j])   # weighted Borda contribution
         return -borda.astype(np.float32), np.zeros(n, dtype=np.float32)
+
+    def predict(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        return self.combine(self.predict_components(X))
 
 
 # ── EnsembleFusionSurrogate ────────────────────────────────────────────────────
+
+def _desc_ranks(mu: np.ndarray) -> np.ndarray:
+    """1 = highest mu, n = lowest (same convention as the original Borda
+    code), with TIES AVERAGED. Per-backbone means come out of bf16 autocast,
+    so ties are pervasive (~700 distinct values per 3000 molecules in tests,
+    far worse over a 2M pool); the original argsort(mu)[::-1] handed the best
+    rank within each tie group to the highest pool index -- on a
+    score-sorted pool (ENHITS) that systematically favored the worst
+    molecules. Identical to the original wherever there are no ties."""
+    from scipy.stats import rankdata
+    return rankdata(-np.asarray(mu, dtype=np.float64), method="average")
+
+
+# molpal.acquirer.metrics.ucb's default beta -- the only beta run_experiment's
+# --acq ucb ever uses (get_metric("ucb") is called with no beta).
+_MOLPAL_UCB_BETA = 2.0
+
 
 def _spearman_np(x: np.ndarray, y: np.ndarray) -> float:
     """Pure-numpy Spearman ρ."""
@@ -370,10 +398,19 @@ class EnsembleFusionSurrogate:
     where backbones disagree (potential high-scorers missed by any single backbone).
 
     UCB_score = -mean_rank_norm + beta * std_rank_norm
-    predict() bakes UCB into mu and returns zeros for sigma — use with acq_greedy.
 
-    sigma is rank std across backbones (∈ [0, ~0.4]).  beta=0.2 is calibrated so
-    exploration contributes ~20% of the signal for the top candidates.
+    predict() returns mu = -mean_rank_norm and sigma = (beta / 2) * std_rank_norm,
+    so run_experiment's --acq ucb (molpal's ucb, mu + 2*sigma) computes exactly
+    the score above, and --acq greedy ranks by mu alone (same ordering as the
+    original -Borda-sum). rank_norm = rank / n_candidates, rank 1 = best.
+
+    Before this fix predict() returned sigma = 0 and never used beta, so
+    --acq ucb was identical to greedy (runs/fusion_ucb_* == fusion_greedy_*,
+    round for round). It also ranked within each 50k prediction chunk rather
+    than over the pool -- see combine().
+
+    std_rank_norm is rank std across backbones (∈ [0, ~0.47]).  beta=0.2 is
+    calibrated so exploration contributes ~20% of the signal for the top candidates.
 
     Parameters
     ----------
@@ -427,19 +464,29 @@ class EnsembleFusionSurrogate:
             print(f"  [EnsembleFusion] {k}: trained {epochs} epochs on {len(y):,} molecules "
                   f"in {time.perf_counter() - t0:.1f}s", flush=True)
 
-    def predict(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    @property
+    def n_components(self) -> int:
+        return len(self._keys)
+
+    def predict_components(self, X: np.ndarray) -> np.ndarray:
+        """Per-backbone predicted means, (n, n_components). Pointwise, so safe
+        to call chunk-by-chunk -- unlike predict() (see combine())."""
         parts = X if isinstance(X, dict) else self._split(X)
-        n     = len(next(iter(parts.values())))
+        return np.stack([self._surrogates[k].predict(parts[k])[0] for k in self._keys], axis=1)
 
-        borda = np.zeros(n, dtype=np.float64)
-        for k in self._keys:
-            mu, _ = self._surrogates[k].predict(parts[k])
-            order = np.argsort(mu)[::-1]
-            ranks = np.empty(n, dtype=np.float64)
-            ranks[order] = np.arange(1, n + 1)
-            borda += ranks
+    def combine(self, comps: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Rank-based mu/sigma over ALL rows of comps. Callers that predict in
+        chunks or shards must concatenate predict_components() first and call
+        this once (run_experiment._chunked_get_means_and_vars does) --
+        ranking each chunk separately gives every chunk its own rank 1."""
+        n = len(comps)
+        rank_norm = np.stack([_desc_ranks(comps[:, j]) for j in range(comps.shape[1])], axis=1) / n
+        mu = -rank_norm.mean(axis=1)
+        sigma = (self._beta / _MOLPAL_UCB_BETA) * rank_norm.std(axis=1)
+        return mu.astype(np.float32), sigma.astype(np.float32)
 
-        return -borda.astype(np.float32), np.zeros(n, dtype=np.float32)
+    def predict(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        return self.combine(self.predict_components(X))
 
 
 # ── LearnedFusionSurrogate ─────────────────────────────────────────────────────

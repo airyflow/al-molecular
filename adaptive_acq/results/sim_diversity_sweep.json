@@ -1,0 +1,1802 @@
+[
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "lam": 0.0,
+  "seed": 0,
+  "recall": [
+   0.132,
+   0.276,
+   0.378,
+   0.454,
+   0.518
+  ],
+  "redundancy": [
+   0.8462,
+   0.8237,
+   0.8336,
+   0.8222,
+   0.7969
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "lam": 0.0,
+  "seed": 1,
+  "recall": [
+   0.11,
+   0.246,
+   0.37,
+   0.446,
+   0.494
+  ],
+  "redundancy": [
+   0.8581,
+   0.8308,
+   0.8308,
+   0.8025,
+   0.7853
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "lam": 0.0,
+  "seed": 2,
+  "recall": [
+   0.112,
+   0.254,
+   0.37,
+   0.45,
+   0.526
+  ],
+  "redundancy": [
+   0.8453,
+   0.8378,
+   0.8307,
+   0.7836,
+   0.8036
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "lam": 0.5,
+  "seed": 0,
+  "recall": [
+   0.13,
+   0.274,
+   0.38,
+   0.458,
+   0.512
+  ],
+  "redundancy": [
+   0.8256,
+   0.8133,
+   0.8022,
+   0.7964,
+   0.7663
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "lam": 0.5,
+  "seed": 1,
+  "recall": [
+   0.11,
+   0.242,
+   0.364,
+   0.458,
+   0.512
+  ],
+  "redundancy": [
+   0.8356,
+   0.8153,
+   0.7953,
+   0.7866,
+   0.7592
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "lam": 0.5,
+  "seed": 2,
+  "recall": [
+   0.11,
+   0.252,
+   0.362,
+   0.462,
+   0.514
+  ],
+  "redundancy": [
+   0.8249,
+   0.8125,
+   0.8047,
+   0.7877,
+   0.7612
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "lam": 1.0,
+  "seed": 0,
+  "recall": [
+   0.132,
+   0.258,
+   0.364,
+   0.436,
+   0.51
+  ],
+  "redundancy": [
+   0.8065,
+   0.7848,
+   0.7896,
+   0.7578,
+   0.7455
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "lam": 1.0,
+  "seed": 1,
+  "recall": [
+   0.12,
+   0.256,
+   0.362,
+   0.454,
+   0.504
+  ],
+  "redundancy": [
+   0.8142,
+   0.79,
+   0.7908,
+   0.752,
+   0.7345
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "lam": 1.0,
+  "seed": 2,
+  "recall": [
+   0.112,
+   0.246,
+   0.37,
+   0.452,
+   0.528
+  ],
+  "redundancy": [
+   0.807,
+   0.7891,
+   0.796,
+   0.7539,
+   0.7468
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "lam": 2.0,
+  "seed": 0,
+  "recall": [
+   0.128,
+   0.254,
+   0.372,
+   0.444,
+   0.504
+  ],
+  "redundancy": [
+   0.765,
+   0.7512,
+   0.7446,
+   0.7232,
+   0.7138
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "lam": 2.0,
+  "seed": 1,
+  "recall": [
+   0.13,
+   0.26,
+   0.364,
+   0.436,
+   0.502
+  ],
+  "redundancy": [
+   0.774,
+   0.7435,
+   0.7428,
+   0.7139,
+   0.7042
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "lam": 2.0,
+  "seed": 2,
+  "recall": [
+   0.104,
+   0.244,
+   0.364,
+   0.444,
+   0.516
+  ],
+  "redundancy": [
+   0.7695,
+   0.7472,
+   0.7473,
+   0.7142,
+   0.7006
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "lam": 5.0,
+  "seed": 0,
+  "recall": [
+   0.126,
+   0.26,
+   0.348,
+   0.45,
+   0.502
+  ],
+  "redundancy": [
+   0.6661,
+   0.664,
+   0.6653,
+   0.6545,
+   0.6505
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "lam": 5.0,
+  "seed": 1,
+  "recall": [
+   0.134,
+   0.256,
+   0.37,
+   0.446,
+   0.502
+  ],
+  "redundancy": [
+   0.6709,
+   0.6584,
+   0.6531,
+   0.6537,
+   0.649
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "D4_dedup",
+  "lam": 5.0,
+  "seed": 2,
+  "recall": [
+   0.1,
+   0.234,
+   0.376,
+   0.442,
+   0.51
+  ],
+  "redundancy": [
+   0.6695,
+   0.6544,
+   0.6572,
+   0.6486,
+   0.649
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "lam": 0.0,
+  "seed": 0,
+  "recall": [
+   0.134,
+   0.23,
+   0.314,
+   0.386,
+   0.43
+  ],
+  "redundancy": [
+   0.8412,
+   0.8195,
+   0.8199,
+   0.7807,
+   0.7736
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "lam": 0.0,
+  "seed": 1,
+  "recall": [
+   0.138,
+   0.278,
+   0.346,
+   0.406,
+   0.458
+  ],
+  "redundancy": [
+   0.8277,
+   0.7998,
+   0.8134,
+   0.7953,
+   0.7727
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "lam": 0.0,
+  "seed": 2,
+  "recall": [
+   0.154,
+   0.266,
+   0.318,
+   0.386,
+   0.448
+  ],
+  "redundancy": [
+   0.8436,
+   0.8206,
+   0.816,
+   0.7813,
+   0.7832
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "lam": 0.5,
+  "seed": 0,
+  "recall": [
+   0.132,
+   0.236,
+   0.318,
+   0.386,
+   0.424
+  ],
+  "redundancy": [
+   0.8198,
+   0.7977,
+   0.8003,
+   0.7691,
+   0.7437
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "lam": 0.5,
+  "seed": 1,
+  "recall": [
+   0.14,
+   0.27,
+   0.35,
+   0.412,
+   0.452
+  ],
+  "redundancy": [
+   0.8052,
+   0.7824,
+   0.7846,
+   0.7801,
+   0.7517
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "lam": 0.5,
+  "seed": 2,
+  "recall": [
+   0.15,
+   0.268,
+   0.322,
+   0.392,
+   0.45
+  ],
+  "redundancy": [
+   0.8214,
+   0.7912,
+   0.7986,
+   0.757,
+   0.7479
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "lam": 1.0,
+  "seed": 0,
+  "recall": [
+   0.128,
+   0.242,
+   0.324,
+   0.388,
+   0.442
+  ],
+  "redundancy": [
+   0.7931,
+   0.7761,
+   0.7713,
+   0.743,
+   0.7263
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "lam": 1.0,
+  "seed": 1,
+  "recall": [
+   0.134,
+   0.274,
+   0.362,
+   0.41,
+   0.446
+  ],
+  "redundancy": [
+   0.784,
+   0.7557,
+   0.7693,
+   0.7512,
+   0.7284
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "lam": 1.0,
+  "seed": 2,
+  "recall": [
+   0.152,
+   0.264,
+   0.328,
+   0.39,
+   0.436
+  ],
+  "redundancy": [
+   0.8002,
+   0.7738,
+   0.7742,
+   0.738,
+   0.7256
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "lam": 2.0,
+  "seed": 0,
+  "recall": [
+   0.134,
+   0.236,
+   0.326,
+   0.402,
+   0.44
+  ],
+  "redundancy": [
+   0.7511,
+   0.7318,
+   0.7178,
+   0.7072,
+   0.6937
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "lam": 2.0,
+  "seed": 1,
+  "recall": [
+   0.13,
+   0.266,
+   0.354,
+   0.404,
+   0.444
+  ],
+  "redundancy": [
+   0.7441,
+   0.723,
+   0.7193,
+   0.7157,
+   0.6956
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "lam": 2.0,
+  "seed": 2,
+  "recall": [
+   0.142,
+   0.27,
+   0.334,
+   0.394,
+   0.452
+  ],
+  "redundancy": [
+   0.7582,
+   0.7288,
+   0.7358,
+   0.6926,
+   0.6948
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "lam": 5.0,
+  "seed": 0,
+  "recall": [
+   0.13,
+   0.244,
+   0.338,
+   0.414,
+   0.462
+  ],
+  "redundancy": [
+   0.6571,
+   0.6461,
+   0.6431,
+   0.6441,
+   0.6362
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "lam": 5.0,
+  "seed": 1,
+  "recall": [
+   0.126,
+   0.256,
+   0.358,
+   0.41,
+   0.454
+  ],
+  "redundancy": [
+   0.6508,
+   0.6423,
+   0.6426,
+   0.6398,
+   0.642
+  ]
+ },
+ {
+  "task": "D4_dedup_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "D4_dedup",
+  "lam": 5.0,
+  "seed": 2,
+  "recall": [
+   0.142,
+   0.256,
+   0.338,
+   0.412,
+   0.46
+  ],
+  "redundancy": [
+   0.6553,
+   0.6502,
+   0.6501,
+   0.6425,
+   0.6335
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "lam": 0.0,
+  "seed": 0,
+  "recall": [
+   0.36666666666666664,
+   0.6791666666666667,
+   0.7854166666666667,
+   0.8354166666666667,
+   0.8625
+  ],
+  "redundancy": [
+   0.6889,
+   0.7217,
+   0.6655,
+   0.6997,
+   0.6505
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "lam": 0.0,
+  "seed": 1,
+  "recall": [
+   0.42916666666666664,
+   0.6979166666666666,
+   0.7708333333333334,
+   0.8166666666666667,
+   0.85625
+  ],
+  "redundancy": [
+   0.6954,
+   0.7182,
+   0.6718,
+   0.6796,
+   0.6583
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "lam": 0.0,
+  "seed": 2,
+  "recall": [
+   0.3875,
+   0.6666666666666666,
+   0.78125,
+   0.8333333333333334,
+   0.8541666666666666
+  ],
+  "redundancy": [
+   0.7047,
+   0.7107,
+   0.6876,
+   0.677,
+   0.6585
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "lam": 0.5,
+  "seed": 0,
+  "recall": [
+   0.36875,
+   0.68125,
+   0.7833333333333333,
+   0.8416666666666667,
+   0.85625
+  ],
+  "redundancy": [
+   0.6705,
+   0.701,
+   0.6548,
+   0.6685,
+   0.6327
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "lam": 0.5,
+  "seed": 1,
+  "recall": [
+   0.4270833333333333,
+   0.6895833333333333,
+   0.7645833333333333,
+   0.8166666666666667,
+   0.8520833333333333
+  ],
+  "redundancy": [
+   0.6674,
+   0.7092,
+   0.646,
+   0.6664,
+   0.6297
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "lam": 0.5,
+  "seed": 2,
+  "recall": [
+   0.3854166666666667,
+   0.6791666666666667,
+   0.7791666666666667,
+   0.8291666666666667,
+   0.8520833333333333
+  ],
+  "redundancy": [
+   0.6813,
+   0.6808,
+   0.6667,
+   0.6595,
+   0.6328
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "lam": 1.0,
+  "seed": 0,
+  "recall": [
+   0.37083333333333335,
+   0.68125,
+   0.7958333333333333,
+   0.8416666666666667,
+   0.8583333333333333
+  ],
+  "redundancy": [
+   0.6512,
+   0.6756,
+   0.6547,
+   0.6312,
+   0.6148
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "lam": 1.0,
+  "seed": 1,
+  "recall": [
+   0.42083333333333334,
+   0.6916666666666667,
+   0.7729166666666667,
+   0.8208333333333333,
+   0.8479166666666667
+  ],
+  "redundancy": [
+   0.6422,
+   0.6877,
+   0.6356,
+   0.6451,
+   0.6164
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "lam": 1.0,
+  "seed": 2,
+  "recall": [
+   0.38958333333333334,
+   0.6770833333333334,
+   0.7791666666666667,
+   0.8270833333333333,
+   0.8416666666666667
+  ],
+  "redundancy": [
+   0.6565,
+   0.6699,
+   0.6493,
+   0.6438,
+   0.6005
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "lam": 2.0,
+  "seed": 0,
+  "recall": [
+   0.36875,
+   0.68125,
+   0.7833333333333333,
+   0.83125,
+   0.8604166666666667
+  ],
+  "redundancy": [
+   0.617,
+   0.6425,
+   0.6181,
+   0.6107,
+   0.5778
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "lam": 2.0,
+  "seed": 1,
+  "recall": [
+   0.40625,
+   0.6833333333333333,
+   0.7666666666666667,
+   0.8208333333333333,
+   0.84375
+  ],
+  "redundancy": [
+   0.6045,
+   0.6503,
+   0.6122,
+   0.6205,
+   0.5858
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "lam": 2.0,
+  "seed": 2,
+  "recall": [
+   0.3854166666666667,
+   0.6645833333333333,
+   0.7854166666666667,
+   0.83125,
+   0.8520833333333333
+  ],
+  "redundancy": [
+   0.6178,
+   0.634,
+   0.6193,
+   0.609,
+   0.5803
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "lam": 5.0,
+  "seed": 0,
+  "recall": [
+   0.325,
+   0.625,
+   0.7770833333333333,
+   0.8270833333333333,
+   0.8583333333333333
+  ],
+  "redundancy": [
+   0.5418,
+   0.5476,
+   0.5599,
+   0.5566,
+   0.5461
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "lam": 5.0,
+  "seed": 1,
+  "recall": [
+   0.35208333333333336,
+   0.63125,
+   0.7666666666666667,
+   0.8104166666666667,
+   0.8416666666666667
+  ],
+  "redundancy": [
+   0.5396,
+   0.5483,
+   0.5677,
+   0.5513,
+   0.5463
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "AmpC_dedup_pca",
+  "lam": 5.0,
+  "seed": 2,
+  "recall": [
+   0.35,
+   0.6354166666666666,
+   0.7666666666666667,
+   0.8229166666666666,
+   0.8541666666666666
+  ],
+  "redundancy": [
+   0.5433,
+   0.5528,
+   0.5637,
+   0.5539,
+   0.5454
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "AmpC_dedup_pca",
+  "lam": 0.0,
+  "seed": 0,
+  "recall": [
+   0.4686192468619247,
+   0.6861924686192469,
+   0.7677824267782427,
+   0.7949790794979079,
+   0.8347280334728033
+  ],
+  "redundancy": [
+   0.7141,
+   0.6868,
+   0.6978,
+   0.6496,
+   0.613
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "AmpC_dedup_pca",
+  "lam": 0.0,
+  "seed": 1,
+  "recall": [
+   0.39748953974895396,
+   0.694560669456067,
+   0.7531380753138075,
+   0.803347280334728,
+   0.8472803347280334
+  ],
+  "redundancy": [
+   0.6884,
+   0.7235,
+   0.6753,
+   0.6525,
+   0.6262
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "AmpC_dedup_pca",
+  "lam": 0.0,
+  "seed": 2,
+  "recall": [
+   0.4309623430962343,
+   0.6715481171548117,
+   0.7635983263598326,
+   0.801255230125523,
+   0.8347280334728033
+  ],
+  "redundancy": [
+   0.7094,
+   0.7044,
+   0.6981,
+   0.6333,
+   0.6204
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "AmpC_dedup_pca",
+  "lam": 0.5,
+  "seed": 0,
+  "recall": [
+   0.4686192468619247,
+   0.6715481171548117,
+   0.7698744769874477,
+   0.8075313807531381,
+   0.8451882845188284
+  ],
+  "redundancy": [
+   0.6862,
+   0.6655,
+   0.6915,
+   0.618,
+   0.5944
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "AmpC_dedup_pca",
+  "lam": 0.5,
+  "seed": 1,
+  "recall": [
+   0.38493723849372385,
+   0.698744769874477,
+   0.7594142259414226,
+   0.8075313807531381,
+   0.8326359832635983
+  ],
+  "redundancy": [
+   0.6657,
+   0.7077,
+   0.6618,
+   0.6295,
+   0.598
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "AmpC_dedup_pca",
+  "lam": 0.5,
+  "seed": 2,
+  "recall": [
+   0.41841004184100417,
+   0.6610878661087866,
+   0.7531380753138075,
+   0.7928870292887029,
+   0.8305439330543933
+  ],
+  "redundancy": [
+   0.6875,
+   0.6847,
+   0.6857,
+   0.6172,
+   0.5986
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "AmpC_dedup_pca",
+  "lam": 1.0,
+  "seed": 0,
+  "recall": [
+   0.4665271966527197,
+   0.6715481171548117,
+   0.7594142259414226,
+   0.8075313807531381,
+   0.8389121338912134
+  ],
+  "redundancy": [
+   0.6663,
+   0.6529,
+   0.6707,
+   0.6097,
+   0.5709
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "AmpC_dedup_pca",
+  "lam": 1.0,
+  "seed": 1,
+  "recall": [
+   0.38493723849372385,
+   0.696652719665272,
+   0.7573221757322176,
+   0.8096234309623431,
+   0.8347280334728033
+  ],
+  "redundancy": [
+   0.6478,
+   0.6859,
+   0.6447,
+   0.6245,
+   0.5735
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "AmpC_dedup_pca",
+  "lam": 1.0,
+  "seed": 2,
+  "recall": [
+   0.4121338912133891,
+   0.6548117154811716,
+   0.7489539748953975,
+   0.7928870292887029,
+   0.8326359832635983
+  ],
+  "redundancy": [
+   0.6624,
+   0.6666,
+   0.6708,
+   0.5958,
+   0.5876
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "AmpC_dedup_pca",
+  "lam": 2.0,
+  "seed": 0,
+  "recall": [
+   0.47280334728033474,
+   0.6799163179916318,
+   0.7594142259414226,
+   0.8075313807531381,
+   0.8368200836820083
+  ],
+  "redundancy": [
+   0.6288,
+   0.6277,
+   0.6347,
+   0.582,
+   0.5521
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "AmpC_dedup_pca",
+  "lam": 2.0,
+  "seed": 1,
+  "recall": [
+   0.3891213389121339,
+   0.6820083682008368,
+   0.7573221757322176,
+   0.8075313807531381,
+   0.8389121338912134
+  ],
+  "redundancy": [
+   0.615,
+   0.6401,
+   0.6188,
+   0.5868,
+   0.5485
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "AmpC_dedup_pca",
+  "lam": 2.0,
+  "seed": 2,
+  "recall": [
+   0.40376569037656906,
+   0.6610878661087866,
+   0.7405857740585774,
+   0.7907949790794979,
+   0.8284518828451883
+  ],
+  "redundancy": [
+   0.6176,
+   0.6405,
+   0.6278,
+   0.5789,
+   0.5608
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "AmpC_dedup_pca",
+  "lam": 5.0,
+  "seed": 0,
+  "recall": [
+   0.4121338912133891,
+   0.6548117154811716,
+   0.7489539748953975,
+   0.801255230125523,
+   0.8221757322175732
+  ],
+  "redundancy": [
+   0.5493,
+   0.5545,
+   0.5682,
+   0.5372,
+   0.52
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "AmpC_dedup_pca",
+  "lam": 5.0,
+  "seed": 1,
+  "recall": [
+   0.3472803347280335,
+   0.6213389121338913,
+   0.7447698744769874,
+   0.805439330543933,
+   0.8347280334728033
+  ],
+  "redundancy": [
+   0.5523,
+   0.5475,
+   0.57,
+   0.5433,
+   0.5251
+  ]
+ },
+ {
+  "task": "AmpC_dedup_pca_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "AmpC_dedup_pca",
+  "lam": 5.0,
+  "seed": 2,
+  "recall": [
+   0.3702928870292887,
+   0.6276150627615062,
+   0.7405857740585774,
+   0.7907949790794979,
+   0.8305439330543933
+  ],
+  "redundancy": [
+   0.542,
+   0.5567,
+   0.5662,
+   0.5416,
+   0.5279
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "lam": 0.0,
+  "seed": 0,
+  "recall": [
+   0.682,
+   0.87,
+   0.93,
+   0.96,
+   0.974
+  ],
+  "redundancy": [
+   0.7402,
+   0.6993,
+   0.6989,
+   0.6841,
+   0.6828
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "lam": 0.0,
+  "seed": 1,
+  "recall": [
+   0.662,
+   0.866,
+   0.926,
+   0.958,
+   0.978
+  ],
+  "redundancy": [
+   0.7265,
+   0.7034,
+   0.699,
+   0.6925,
+   0.6872
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "lam": 0.0,
+  "seed": 2,
+  "recall": [
+   0.672,
+   0.862,
+   0.928,
+   0.954,
+   0.972
+  ],
+  "redundancy": [
+   0.7464,
+   0.7039,
+   0.6944,
+   0.69,
+   0.6819
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "lam": 0.5,
+  "seed": 0,
+  "recall": [
+   0.686,
+   0.872,
+   0.934,
+   0.958,
+   0.97
+  ],
+  "redundancy": [
+   0.7294,
+   0.6942,
+   0.6855,
+   0.6907,
+   0.6821
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "lam": 0.5,
+  "seed": 1,
+  "recall": [
+   0.66,
+   0.866,
+   0.928,
+   0.958,
+   0.978
+  ],
+  "redundancy": [
+   0.7145,
+   0.6964,
+   0.6872,
+   0.6876,
+   0.6836
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "lam": 0.5,
+  "seed": 2,
+  "recall": [
+   0.672,
+   0.874,
+   0.928,
+   0.958,
+   0.972
+  ],
+  "redundancy": [
+   0.7367,
+   0.7,
+   0.6849,
+   0.6844,
+   0.6812
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "lam": 1.0,
+  "seed": 0,
+  "recall": [
+   0.69,
+   0.864,
+   0.928,
+   0.954,
+   0.976
+  ],
+  "redundancy": [
+   0.7172,
+   0.6869,
+   0.6841,
+   0.6813,
+   0.679
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "lam": 1.0,
+  "seed": 1,
+  "recall": [
+   0.664,
+   0.864,
+   0.93,
+   0.954,
+   0.98
+  ],
+  "redundancy": [
+   0.7058,
+   0.6919,
+   0.6878,
+   0.6784,
+   0.6753
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "lam": 1.0,
+  "seed": 2,
+  "recall": [
+   0.666,
+   0.868,
+   0.926,
+   0.958,
+   0.972
+  ],
+  "redundancy": [
+   0.7273,
+   0.6908,
+   0.6801,
+   0.6812,
+   0.6697
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "lam": 2.0,
+  "seed": 0,
+  "recall": [
+   0.696,
+   0.858,
+   0.934,
+   0.96,
+   0.974
+  ],
+  "redundancy": [
+   0.6979,
+   0.6781,
+   0.6667,
+   0.6771,
+   0.6647
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "lam": 2.0,
+  "seed": 1,
+  "recall": [
+   0.656,
+   0.866,
+   0.928,
+   0.962,
+   0.976
+  ],
+  "redundancy": [
+   0.6864,
+   0.6798,
+   0.6798,
+   0.6651,
+   0.6732
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "lam": 2.0,
+  "seed": 2,
+  "recall": [
+   0.654,
+   0.866,
+   0.928,
+   0.956,
+   0.976
+  ],
+  "redundancy": [
+   0.7028,
+   0.6796,
+   0.6687,
+   0.6729,
+   0.6686
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "lam": 5.0,
+  "seed": 0,
+  "recall": [
+   0.656,
+   0.836,
+   0.918,
+   0.948,
+   0.968
+  ],
+  "redundancy": [
+   0.6486,
+   0.6513,
+   0.6493,
+   0.6498,
+   0.6484
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "lam": 5.0,
+  "seed": 1,
+  "recall": [
+   0.622,
+   0.846,
+   0.918,
+   0.956,
+   0.972
+  ],
+  "redundancy": [
+   0.6435,
+   0.6489,
+   0.6537,
+   0.6476,
+   0.6485
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t0",
+  "source": "ENHITS",
+  "lam": 5.0,
+  "seed": 2,
+  "recall": [
+   0.634,
+   0.848,
+   0.918,
+   0.948,
+   0.968
+  ],
+  "redundancy": [
+   0.6492,
+   0.6485,
+   0.6514,
+   0.6462,
+   0.6455
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "lam": 0.0,
+  "seed": 0,
+  "recall": [
+   0.694,
+   0.874,
+   0.942,
+   0.958,
+   0.978
+  ],
+  "redundancy": [
+   0.7446,
+   0.7015,
+   0.6929,
+   0.6979,
+   0.6946
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "lam": 0.0,
+  "seed": 1,
+  "recall": [
+   0.64,
+   0.874,
+   0.934,
+   0.954,
+   0.974
+  ],
+  "redundancy": [
+   0.7619,
+   0.6972,
+   0.7051,
+   0.6917,
+   0.6932
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "lam": 0.0,
+  "seed": 2,
+  "recall": [
+   0.684,
+   0.868,
+   0.94,
+   0.956,
+   0.97
+  ],
+  "redundancy": [
+   0.7374,
+   0.7012,
+   0.6937,
+   0.6928,
+   0.6982
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "lam": 0.5,
+  "seed": 0,
+  "recall": [
+   0.694,
+   0.88,
+   0.94,
+   0.954,
+   0.974
+  ],
+  "redundancy": [
+   0.7347,
+   0.6943,
+   0.6897,
+   0.6898,
+   0.6955
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "lam": 0.5,
+  "seed": 1,
+  "recall": [
+   0.64,
+   0.87,
+   0.934,
+   0.956,
+   0.974
+  ],
+  "redundancy": [
+   0.7521,
+   0.6928,
+   0.6954,
+   0.6896,
+   0.6853
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "lam": 0.5,
+  "seed": 2,
+  "recall": [
+   0.682,
+   0.87,
+   0.942,
+   0.958,
+   0.972
+  ],
+  "redundancy": [
+   0.7281,
+   0.7012,
+   0.6831,
+   0.6899,
+   0.6916
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "lam": 1.0,
+  "seed": 0,
+  "recall": [
+   0.692,
+   0.886,
+   0.94,
+   0.956,
+   0.978
+  ],
+  "redundancy": [
+   0.7258,
+   0.6885,
+   0.6854,
+   0.683,
+   0.6834
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "lam": 1.0,
+  "seed": 1,
+  "recall": [
+   0.638,
+   0.85,
+   0.93,
+   0.956,
+   0.974
+  ],
+  "redundancy": [
+   0.7431,
+   0.6856,
+   0.6931,
+   0.6849,
+   0.6759
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "lam": 1.0,
+  "seed": 2,
+  "recall": [
+   0.67,
+   0.876,
+   0.936,
+   0.958,
+   0.974
+  ],
+  "redundancy": [
+   0.7201,
+   0.6899,
+   0.6838,
+   0.6849,
+   0.6827
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "lam": 2.0,
+  "seed": 0,
+  "recall": [
+   0.686,
+   0.882,
+   0.94,
+   0.952,
+   0.974
+  ],
+  "redundancy": [
+   0.7066,
+   0.6761,
+   0.6784,
+   0.6742,
+   0.6823
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "lam": 2.0,
+  "seed": 1,
+  "recall": [
+   0.638,
+   0.852,
+   0.932,
+   0.952,
+   0.97
+  ],
+  "redundancy": [
+   0.7232,
+   0.6775,
+   0.6799,
+   0.6711,
+   0.6814
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "lam": 2.0,
+  "seed": 2,
+  "recall": [
+   0.658,
+   0.866,
+   0.936,
+   0.956,
+   0.974
+  ],
+  "redundancy": [
+   0.7021,
+   0.6758,
+   0.6736,
+   0.6783,
+   0.6749
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "lam": 5.0,
+  "seed": 0,
+  "recall": [
+   0.65,
+   0.864,
+   0.924,
+   0.948,
+   0.966
+  ],
+  "redundancy": [
+   0.656,
+   0.6482,
+   0.6537,
+   0.6562,
+   0.653
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "lam": 5.0,
+  "seed": 1,
+  "recall": [
+   0.61,
+   0.838,
+   0.924,
+   0.948,
+   0.968
+  ],
+  "redundancy": [
+   0.6713,
+   0.6456,
+   0.6559,
+   0.6611,
+   0.6554
+  ]
+ },
+ {
+  "task": "ENHITS_molformer-mhgged-smited-unimol2_n200000_pca128_t1",
+  "source": "ENHITS",
+  "lam": 5.0,
+  "seed": 2,
+  "recall": [
+   0.64,
+   0.852,
+   0.918,
+   0.956,
+   0.97
+  ],
+  "redundancy": [
+   0.6511,
+   0.6503,
+   0.6518,
+   0.6494,
+   0.6536
+  ]
+ }
+]

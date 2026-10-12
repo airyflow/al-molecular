@@ -10,3 +10,7 @@ __pycache__/
 *.pyc
 slides/
 config.env
+adaptive_acq/sim_tasks/
+adaptive_acq/artifacts/*.log.json
+adaptive_acq/sim_tasks_local/
+adaptive_acq/artifacts_local/*.log.json

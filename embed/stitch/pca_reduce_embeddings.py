@@ -34,6 +34,7 @@ python pca_reduce_embeddings.py --backbone grover3400 --dim 3400 --n-components 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
@@ -44,74 +45,91 @@ from sklearn.decomposition import PCA
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
 from shared_embedding_store import preallocate, write_slice
+from smiles_chunking import _chunk_bounds
 
 READ_BLOCK = 500_000  # rows/block, same as dedup_embeddings.py
 
 
-def _sample_rows(emb: np.memmap, n_total: int, dim: int, n_sample: int, seed: int) -> np.ndarray:
-    """Reads n_sample uniformly-random rows via one sequential block scan."""
+class _BlockReader:
+    """Reads row ranges of a .npy with plain seek + read instead of
+    np.asarray(memmap slice). Same bytes, so results are bit-identical;
+    on /N/project, 0.5 GB test reads (2026-10-12) ran ~240 MB/s median
+    buffered vs ~115 MB/s via memmap, which also had stalls down to 10 MB/s."""
+
+    def __init__(self, path: str):
+        mm = np.load(path, mmap_mode="r")
+        self.shape, self.dtype = mm.shape, mm.dtype
+        self.row_bytes = mm.shape[1] * mm.dtype.itemsize
+        del mm
+        self._f = open(path, "rb")
+        version = np.lib.format.read_magic(self._f)
+        np.lib.format._read_array_header(self._f, version)
+        self._offset = self._f.tell()
+
+    def read(self, start: int, end: int) -> np.ndarray:
+        self._f.seek(self._offset + start * self.row_bytes)
+        raw = self._f.read((end - start) * self.row_bytes)
+        return np.frombuffer(raw, dtype=self.dtype).reshape(end - start, self.shape[1])
+
+
+def _effective_n_sample(n_sample: int, dim: int, backbone: str) -> int:
+    # LAPACK (via scipy's full SVD) indexes with 32-bit ints here: a sample
+    # matrix over 2**31 ~ 2.15B elements raises "Indexing a matrix of N
+    # elements would incur an integer overflow in LAPACK" -- grover3400's
+    # 1,000,000 x 3,400 sample crashed this way on 2026-09-17, unimol2's
+    # 1,000,000 x 1,536 fit fine. Capped at a conservative 1.5B elements.
+    MAX_SAMPLE_ELEMENTS = 1_500_000_000
+    effective = min(n_sample, MAX_SAMPLE_ELEMENTS // dim)
+    if effective < n_sample:
+        print(f"[{backbone}] capping sample to {effective:,} rows (from {n_sample:,}) -- "
+              f"dim={dim} would otherwise risk a LAPACK integer-overflow crash during the full-SVD fit")
+    return effective
+
+
+def _sample_rows(emb: _BlockReader, n_total: int, dim: int, n_sample: int, seed: int,
+                 start: int = 0, end: int | None = None) -> np.ndarray:
+    """Reads the sampled rows that fall in [start, end) via one sequential
+    block scan of that range. The sample itself is always drawn over the
+    whole pool from the same seed, so the parts gathered by separate range
+    tasks concatenate (in range order) to exactly the single-process sample."""
+    end = n_total if end is None else end
     rng = np.random.default_rng(seed)
     sample_idx = rng.choice(n_total, size=min(n_sample, n_total), replace=False)
     sample_idx.sort()  # so the block scan below can consume it in order
     is_sampled = np.zeros(n_total, dtype=bool)
     is_sampled[sample_idx] = True
+    n_wanted = int(is_sampled[start:end].sum())
 
-    out = np.empty((len(sample_idx), dim), dtype=np.float32)
+    out = np.empty((n_wanted, dim), dtype=np.float32)
     cursor = 0
     t0 = time.perf_counter()
-    for start in range(0, n_total, READ_BLOCK):
-        end = min(start + READ_BLOCK, n_total)
-        block_mask = is_sampled[start:end]
+    for b, s in enumerate(range(start, end, READ_BLOCK)):
+        e = min(s + READ_BLOCK, end)
+        block_mask = is_sampled[s:e]
         n_hit = int(block_mask.sum())
         if n_hit:
-            block = np.asarray(emb[start:end])
+            block = emb.read(s, e)
             out[cursor:cursor + n_hit] = block[block_mask]
             cursor += n_hit
-        if (start // READ_BLOCK) % 40 == 0:
-            print(f"  [sample] {end:,}/{n_total:,} scanned, {cursor:,}/{len(sample_idx):,} "
+        if b % 40 == 0:
+            print(f"  [sample] {e:,}/{end:,} scanned, {cursor:,}/{n_wanted:,} "
                   f"sampled rows found ({time.perf_counter()-t0:.1f}s elapsed)", flush=True)
-    assert cursor == len(sample_idx), f"found {cursor:,} of {len(sample_idx):,} sampled rows"
+    assert cursor == n_wanted, f"found {cursor:,} of {n_wanted:,} sampled rows"
+    print(f"  [sample] rows [{start:,}, {end:,}) scanned in {time.perf_counter()-t0:.1f}s", flush=True)
     return out
 
 
-def _fit_or_load_pca(backbone: str, dim: int, n_components, embeddings_path: str,
-                      out_path: str, n_sample: int, seed: int) -> PCA:
-    params_path = Path(f"{out_path}.pca_params.npz")
-    if params_path.exists():
-        data = np.load(params_path)
-        pca = PCA(n_components=data["components"].shape[0])
-        pca.components_ = data["components"]
-        pca.mean_ = data["mean"]
-        pca.explained_variance_ratio_ = data["explained_variance_ratio"]
-        pca.n_components_ = data["components"].shape[0]
-        print(f"[{backbone}] loaded cached PCA fit from {params_path} "
-              f"({pca.n_components_} components, "
-              f"{data['explained_variance_ratio'].sum():.4f} variance retained)")
-        return pca
+def _load_params(params_path: Path) -> PCA:
+    data = np.load(params_path)
+    pca = PCA(n_components=data["components"].shape[0])
+    pca.components_ = data["components"]
+    pca.mean_ = data["mean"]
+    pca.explained_variance_ratio_ = data["explained_variance_ratio"]
+    pca.n_components_ = data["components"].shape[0]
+    return pca
 
-    emb = np.load(embeddings_path, mmap_mode="r")
-    n_total = emb.shape[0]
-    if emb.shape[1] != dim:
-        raise SystemExit(f"{embeddings_path} has shape {emb.shape}, expected (*, {dim}) -- check --dim")
 
-    # scipy's LAPACK-backed full SVD (linalg.svd -> gesdd) hits an integer
-    # overflow ("Indexing a matrix of N elements would incur an integer
-    # overflow in LAPACK") somewhere between 1.536B elements (unimol2's
-    # 1,000,000 x 1,536 sample -- fit fine) and 3.4B (grover3400's
-    # 1,000,000 x 3,400 sample -- crashed immediately on fit, 2026-09-17).
-    # Capped here at a conservative 1.5B-element budget, comfortably under
-    # that boundary for every backbone's dim, rather than requiring a
-    # per-backbone --n-sample override to dodge a failure mode that's
-    # invisible until it's hit.
-    MAX_SAMPLE_ELEMENTS = 1_500_000_000
-    effective_n_sample = min(n_sample, MAX_SAMPLE_ELEMENTS // dim)
-    if effective_n_sample < n_sample:
-        print(f"[{backbone}] capping sample to {effective_n_sample:,} rows (from {n_sample:,}) -- "
-              f"dim={dim} would otherwise risk a LAPACK integer-overflow crash during the full-SVD fit")
-
-    print(f"[{backbone}] sampling {min(effective_n_sample, n_total):,}/{n_total:,} rows for PCA fit (seed={seed})")
-    sample = _sample_rows(emb, n_total, dim, effective_n_sample, seed)
-
+def _fit(backbone: str, n_components, sample: np.ndarray, seed: int, params_path: Path) -> PCA:
     print(f"[{backbone}] fitting PCA (n_components={n_components}) on sample shape {sample.shape}")
     t0 = time.perf_counter()
     svd_solver = "randomized" if isinstance(n_components, int) else "full"
@@ -120,8 +138,6 @@ def _fit_or_load_pca(backbone: str, dim: int, n_components, embeddings_path: str
     print(f"[{backbone}] fit done in {time.perf_counter()-t0:.1f}s, "
           f"{pca.n_components_} components, "
           f"{pca.explained_variance_ratio_.sum():.4f} variance retained")
-    del sample
-
     params_path.parent.mkdir(parents=True, exist_ok=True)
     np.savez(params_path, components=pca.components_, mean=pca.mean_,
              explained_variance_ratio=pca.explained_variance_ratio_)
@@ -129,21 +145,40 @@ def _fit_or_load_pca(backbone: str, dim: int, n_components, embeddings_path: str
     return pca
 
 
-def _find_resume_point(out_path: str, n_total: int) -> int:
-    """Binary-searches out_path for the last written (non-zero) row.
-    Mirrors dedup_embeddings.py's _find_resume_point."""
+def _fit_or_load_pca(backbone: str, dim: int, n_components, embeddings_path: str,
+                      out_path: str, n_sample: int, seed: int) -> PCA:
+    params_path = Path(f"{out_path}.pca_params.npz")
+    if params_path.exists():
+        pca = _load_params(params_path)
+        print(f"[{backbone}] loaded cached PCA fit from {params_path} "
+              f"({pca.n_components_} components, "
+              f"{pca.explained_variance_ratio_.sum():.4f} variance retained)")
+        return pca
+
+    emb = _BlockReader(embeddings_path)
+    n_total = emb.shape[0]
+    if emb.shape[1] != dim:
+        raise SystemExit(f"{embeddings_path} has shape {emb.shape}, expected (*, {dim}) -- check --dim")
+    effective_n_sample = _effective_n_sample(n_sample, dim, backbone)
+    print(f"[{backbone}] sampling {min(effective_n_sample, n_total):,}/{n_total:,} rows for PCA fit (seed={seed})")
+    sample = _sample_rows(emb, n_total, dim, effective_n_sample, seed)
+    return _fit(backbone, n_components, sample, seed, params_path)
+
+
+def _find_resume_point(out_path: str, start: int, end: int) -> int:
+    """Binary-searches rows [start, end) of out_path for the last written
+    (non-zero) row; returns the first row still to write. Valid because rows
+    within one range are written strictly in order."""
     out = np.load(out_path, mmap_mode="r")
 
     def is_zero_row(i: int) -> bool:
         return bool(np.all(np.asarray(out[i]) == 0))
 
-    if not is_zero_row(0):
-        lo = 0
-    else:
-        return 0
-    if not is_zero_row(n_total - 1):
-        return n_total
-    hi = n_total - 1
+    if is_zero_row(start):
+        return start
+    if not is_zero_row(end - 1):
+        return end
+    lo, hi = start, end - 1
     while lo < hi - 1:
         mid = (lo + hi) // 2
         if is_zero_row(mid):
@@ -153,23 +188,17 @@ def _find_resume_point(out_path: str, n_total: int) -> int:
     return lo + 1
 
 
-def reduce_embeddings(backbone: str, dim: int, n_components, embeddings_path: str,
-                       out_path: str, n_sample: int, seed: int, resume: bool) -> None:
-    pca = _fit_or_load_pca(backbone, dim, n_components, embeddings_path, out_path, n_sample, seed)
+def _transform_range(backbone: str, pca: PCA, emb: _BlockReader, out_path: str,
+                     start: int, end: int, resume: bool) -> None:
     k = pca.components_.shape[0]
-
-    emb = np.load(embeddings_path, mmap_mode="r")
-    n_total = emb.shape[0]
-
-    scan_start = 0
-    if resume and Path(out_path).exists():
-        scan_start = _find_resume_point(out_path, n_total)
-        if scan_start >= n_total:
-            print(f"[{backbone}] already fully written ({n_total:,}/{n_total:,}) -- nothing to do")
+    scan_start = start
+    if resume:
+        scan_start = _find_resume_point(out_path, start, end)
+        if scan_start >= end:
+            print(f"[{backbone}] rows [{start:,}, {end:,}) already written -- nothing to do")
             return
-        print(f"[{backbone}] resuming transform pass from row {scan_start:,}/{n_total:,}")
-    else:
-        preallocate(out_path, n_molecules=n_total, dim=k)
+        if scan_start > start:
+            print(f"[{backbone}] resuming transform at row {scan_start:,} of [{start:,}, {end:,})")
 
     # mean_/components_ pulled out of the sklearn object once, so the hot
     # loop below is plain numpy, not attribute lookups on `pca` per block.
@@ -177,17 +206,27 @@ def reduce_embeddings(backbone: str, dim: int, n_components, embeddings_path: st
     components_T = pca.components_.T  # (dim, k)
 
     t0 = time.perf_counter()
-    for start in range(scan_start, n_total, READ_BLOCK):
-        end = min(start + READ_BLOCK, n_total)
-        block = np.asarray(emb[start:end])
+    for b, s in enumerate(range(scan_start, end, READ_BLOCK)):
+        e = min(s + READ_BLOCK, end)
+        block = emb.read(s, e)
         reduced = (block - mean_) @ components_T
-        write_slice(out_path, start, end, reduced.astype(np.float32, copy=False))
-        if (start // READ_BLOCK) % 20 == 0:
-            print(f"[{backbone}] transformed {end:,}/{n_total:,} rows "
+        write_slice(out_path, s, e, reduced.astype(np.float32, copy=False))
+        if b % 20 == 0:
+            print(f"[{backbone}] transformed {e:,}/{end:,} rows "
                   f"({time.perf_counter()-t0:.1f}s elapsed)", flush=True)
+    print(f"[done] {backbone}: rows [{start:,}, {end:,}) -> {out_path} (dim {emb.shape[1]}->{k}) "
+          f"(transform only: {time.perf_counter()-t0:.1f}s)")
 
-    print(f"[done] {backbone}: {n_total:,} rows -> {out_path} "
-          f"(dim {dim}->{k}) ({time.perf_counter()-t0:.1f}s total)")
+
+def reduce_embeddings(backbone: str, dim: int, n_components, embeddings_path: str,
+                       out_path: str, n_sample: int, seed: int, resume: bool) -> None:
+    """Single-process path: sample, fit (or load cached fit), transform all rows."""
+    pca = _fit_or_load_pca(backbone, dim, n_components, embeddings_path, out_path, n_sample, seed)
+    emb = _BlockReader(embeddings_path)
+    n_total = emb.shape[0]
+    if not (resume and Path(out_path).exists()):
+        preallocate(out_path, n_molecules=n_total, dim=pca.components_.shape[0])
+    _transform_range(backbone, pca, emb, out_path, 0, n_total, resume and Path(out_path).exists())
 
 
 def main():
@@ -201,11 +240,60 @@ def main():
     p.add_argument("--n-sample", type=int, default=1_000_000)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--resume", action="store_true")
+    p.add_argument("--stage", default="all", choices=["all", "gather", "fit", "transform"],
+                   help="all = single process (default). For row-range parallelism run "
+                        "gather (array of --num-tasks), then fit (one task), then transform (array).")
+    p.add_argument("--task-id", type=int, default=None, help="gather/transform: default SLURM_ARRAY_TASK_ID")
+    p.add_argument("--num-tasks", type=int, default=None, help="gather/transform: number of row ranges")
     args = p.parse_args()
 
     n_components = int(args.n_components) if args.n_components >= 1 else args.n_components
-    reduce_embeddings(args.backbone, args.dim, n_components, args.embeddings_path,
-                       args.out_path, args.n_sample, args.seed, args.resume)
+    if args.stage == "all":
+        reduce_embeddings(args.backbone, args.dim, n_components, args.embeddings_path,
+                          args.out_path, args.n_sample, args.seed, args.resume)
+        return
+
+    emb = _BlockReader(args.embeddings_path)
+    n_total = emb.shape[0]
+    if emb.shape[1] != args.dim:
+        raise SystemExit(f"{args.embeddings_path} has shape {emb.shape}, expected (*, {args.dim})")
+    params_path = Path(f"{args.out_path}.pca_params.npz")
+    parts_dir = Path(f"{args.out_path}.sample_parts")
+    if args.stage in ("gather", "transform"):
+        if args.num_tasks is None:
+            raise SystemExit(f"--stage {args.stage} needs --num-tasks")
+        task = args.task_id if args.task_id is not None else int(os.environ["SLURM_ARRAY_TASK_ID"])
+        start, end = _chunk_bounds(n_total, task, args.num_tasks)
+
+    if args.stage == "gather":
+        part_path = parts_dir / f"part_{task:04d}.npy"
+        if args.resume and part_path.exists():
+            print(f"[{args.backbone}] {part_path} exists -- nothing to do")
+            return
+        n_eff = _effective_n_sample(args.n_sample, args.dim, args.backbone)
+        part = _sample_rows(emb, n_total, args.dim, n_eff, args.seed, start, end)
+        parts_dir.mkdir(parents=True, exist_ok=True)
+        tmp = parts_dir / f"part_{task:04d}.tmp.npy"
+        np.save(tmp, part)
+        tmp.rename(part_path)  # a killed task never leaves a half-written part behind
+        print(f"[{args.backbone}] task {task}: {len(part):,} sampled rows -> {part_path}")
+    elif args.stage == "fit":
+        if args.resume and params_path.exists():
+            pca = _load_params(params_path)
+            print(f"[{args.backbone}] {params_path} exists -- not refitting")
+        else:
+            parts = sorted(parts_dir.glob("part_[0-9][0-9][0-9][0-9].npy"))
+            n_eff = _effective_n_sample(args.n_sample, args.dim, args.backbone)
+            sample = np.concatenate([np.load(f) for f in parts])
+            if len(sample) != min(n_eff, n_total):
+                raise SystemExit(f"gathered {len(sample):,} sample rows from {len(parts)} parts, expected "
+                                 f"{min(n_eff, n_total):,} -- a gather task is missing or used another --num-tasks")
+            pca = _fit(args.backbone, n_components, sample, args.seed, params_path)
+        preallocate(args.out_path, n_molecules=n_total, dim=pca.components_.shape[0])
+    else:  # transform
+        if not params_path.exists() or not Path(args.out_path).exists():
+            raise SystemExit("run --stage fit first (it saves the params and preallocates the output)")
+        _transform_range(args.backbone, _load_params(params_path), emb, args.out_path, start, end, True)
 
 
 if __name__ == "__main__":

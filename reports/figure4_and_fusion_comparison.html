@@ -1135,6 +1135,21 @@ footer {
   <div class="prose"><p style="margin-top:14px">MPN trailed LT-All at every round and finished 7.7 points behind (69.2% vs. 76.9%); the gap narrowed from about 12 points in rounds 1&ndash;3 to 9 at round 4 and 7.7 at round 5. On AmpC at the same fraction the two were within 0.6&ndash;5 points through round 4 and MPN edged ahead at round 5 (89.5% vs. 89.4%, &sect;11/&sect;15), so on D4 the paper's own surrogate, at this batch size, is clearly the weaker one. Because batch size 1024 is not the paper's setting, this does not show that MPN as published would lose on D4.</p>
     <p>Round 5 was finished offline: the orchestrator reached its 48 h SLURM limit after all 8 round-5 prediction shards were done but before it gathered them, and resubmitting it would have retrained round 5's MPN (about 11 h of GPU) only to discard it. <code>finalize_parallel_round.py</code> repeats the orchestrator's post-gather code on CPU from the saved shard predictions. Validated on round 4 against the orchestrator's own result: identical recall (0.6342), best score and labeled count, with one molecule swapped at an exact tie at the selection cutoff (two candidates with score 45.266006 competing for the last slot; GPU and CPU nodes broke the tie differently). Round 5's cutoff had no such ambiguity: all 4 candidates sharing the cutoff score were selected.</p></div>
 
+  <h3>MPN with batch size 50 (the paper's setting), frac=0.004 &mdash; in progress</h3>
+  <div class="prose">
+    <p>The control for the run above: same pipeline, pool, seed 42 and frac, with MPN's own default batch size of 50 restored. The only other change is <code>--mpn-persistent-workers</code>, which keeps data-loader workers alive between epochs; it gave bit-identical predictions in testing (see &ldquo;Keeping loader workers alive&rdquo; below), so this is the paper's configuration. Orchestrator job 11937805, coord-dir <code>al_coord/mpn_bs50_frac0.004</code>, run dir <code>runs/d4_mpn_bs50_greedy_frac0.004</code>. Round 1's prediction workers: job 11968334; round 2's: job 12159081.</p>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th class="num">Round</th><th class="num">Labeled</th><th class="num">Best (kcal/mol)</th><th class="num">MPN bs50 recall</th><th class="num">MPN bs1024 recall</th><th class="num">LT-All recall</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td class="num">929,808</td><td class="num">&minus;73.670</td><td class="num"><b>28.3%</b></td><td class="num">20.1%</td><td class="num">32.0%</td></tr>
+        <tr><td class="num">2&ndash;5</td><td class="num" colspan="5">running</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose"><p style="margin-top:14px">After one round, batch size 50 is 8.2 points ahead of batch size 1024 (28.3% vs. 20.1%) and 3.7 behind LT-All (32.0%), so it has closed about two-thirds of the round-1 gap. This is one round of one seed; the comparison that matters is round 5. If the lead holds, batch size 1024 &mdash; not MPN itself &mdash; caused most of the D4 gap reported above. Round-1 training on 464,904 molecules took 6,639 s; prediction shards took about 7 h (6 workers) and 11 h (workers 2 and 4, which ran slower).</p></div>
+
   <h3>Did batch size 1024 make training faster?</h3>
   <div class="prose"><p>Only modestly. Throughput below = labeled molecules &times; 50 epochs &divide; training seconds, from each round's <code>[MPN] trained on ...</code> log line. Rounds that were retrained after a restart appear twice.</p></div>
   <div class="table-scroll">
@@ -1146,6 +1161,7 @@ footer {
         <tr><td>D4, bs1024, round 3 (two runs)</td><td class="num">1,394,712</td><td class="num">28,873 s / 29,798 s</td><td class="num">2,415 / 2,340</td></tr>
         <tr><td>D4, bs1024, round 4</td><td class="num">1,859,616</td><td class="num">38,271 s</td><td class="num">2,430</td></tr>
         <tr><td>D4, bs1024, round 5</td><td class="num">2,324,520</td><td class="num">40,101 s</td><td class="num">2,898</td></tr>
+        <tr><td>D4, bs50 + persistent workers, round 1</td><td class="num">464,904</td><td class="num">6,639 s</td><td class="num">3,501</td></tr>
         <tr><td>AmpC, bs50, rounds 2&ndash;5 (&sect;15)</td><td class="num">787,914&ndash;1,969,785</td><td class="num">23,274&ndash;59,863 s</td><td class="num">1,645&ndash;2,113</td></tr>
       </tbody>
     </table>
@@ -1166,7 +1182,7 @@ footer {
     </table>
   </div>
   <div class="callout">
-    <b>On identical data and hardware, batch size 1024 is 1.09&times; faster than 50.</b> Each epoch is dominated by the data loader on the CPU: molecular graphs are rebuilt from SMILES every epoch (caching them was ruled out at ~15 TB for AmpC), and the 8 loader workers are restarted every epoch and handed the whole dataset again, which alone delays the first batch by 40&ndash;56 s here and grows with the training set. Batch size only reduces the GPU-side step overhead, a minority of each epoch. Its effect on recall is unknown: D4 MPN at batch size 1024 reached 69.2% (vs. 76.9% for LT-All), but there is no batch-size-50 D4 MPN run to compare against. Faster GPU arithmetic, such as mixed precision, would help little, since the GPU is not the bottleneck; the loader fixes below were tested instead.
+    <b>On identical data and hardware, batch size 1024 is 1.09&times; faster than 50.</b> Each epoch is dominated by the data loader on the CPU: molecular graphs are rebuilt from SMILES every epoch (caching them was ruled out at ~15 TB for AmpC), and the 8 loader workers are restarted every epoch and handed the whole dataset again, which alone delays the first batch by 40&ndash;56 s here and grows with the training set. Batch size only reduces the GPU-side step overhead, a minority of each epoch. Its effect on recall is unknown: D4 MPN at batch size 1024 reached 69.2% (vs. 76.9% for LT-All), but there is no batch-size-50 D4 MPN run to compare against. Faster GPU arithmetic, such as mixed precision, would help little, since the GPU is not the bottleneck; the loader fixes below were tested instead. (A batch-size-50 D4 MPN run is now in progress; see above.)
   </div>
 
   <h4>Keeping loader workers alive between epochs</h4>
@@ -1187,12 +1203,34 @@ footer {
     </table>
   </div>
   <div class="callout">
-    <b>Keeping loader workers alive makes MPN training about 1.8&times; faster, with identical results.</b> At batch size 50 with 8 workers, epoch time drops from 139.0 to 79.1 s; the first batch of each later epoch arrives in 0.2 s instead of about 40 s, because workers are no longer restarted and re-sent the dataset every epoch. These runs are 3 epochs, so the one-time start-up still weighs on them; a real 50-epoch round should gain more (not measured). With a fixed seed, training with the option off and on gave bit-identical predictions (2,000 molecules, 2 epochs, CPU), so it changes only speed. Doubling to 16 workers is not a free gain: their start-up takes about 75 s instead of 40, which made non-persistent runs slower (0.69&ndash;0.72&times;); once running they build graphs faster (second loader pass 26.8 vs. 47.1 s at batch 1024), so with persistent workers 16 may beat 8 over a full 50-epoch round &mdash; untested. Recommended setting: persistent workers on, 8 workers. Batch size remains nearly irrelevant (1.04&times;).
+    <b>Keeping loader workers alive makes MPN training about 1.8&times; faster, with identical results.</b> At batch size 50 with 8 workers, epoch time drops from 139.0 to 79.1 s; the first batch of each later epoch arrives in 0.2 s instead of about 40 s, because workers are no longer restarted and re-sent the dataset every epoch. These runs are 3 epochs, so the one-time start-up still weighs on them; a real 50-epoch round should gain more (not measured). With a fixed seed, training with the option off and on gave bit-identical predictions (2,000 molecules, 2 epochs, CPU), so it changes only speed. Doubling to 16 workers is not a free gain: their start-up takes about 75 s instead of 40, which made non-persistent runs slower (0.69&ndash;0.72&times;); once running they build graphs faster (second loader pass 26.8 vs. 47.1 s at batch 1024), so with persistent workers 16 may beat 8 over a full 50-epoch round &mdash; untested. Recommended setting: persistent workers on, 8 workers. Batch size remains nearly irrelevant (1.04&times;). <b>Confirmed in a real round (2026-10-13):</b> the batch-size-50 D4 run with persistent workers trained round 1 (464,904 molecules, 50 epochs) in 6,639 s, 3,501 molecule-epochs/s &mdash; 4.3&times; faster than the bs1024 run's round 1 (28,857 s) and 1.2&ndash;1.5&times; faster than its later, steadier rounds (2,400&ndash;2,900). Different nodes, so approximate.
   </div>
 
   <h3>Engineering notes</h3>
   <div class="prose">
     <p><b style="color:var(--ink)">Every deduplicated embedding file was on a single storage server.</b> Found 2026-10-12 while chasing slow PCA reads: all six <code>d4_138M/dedup/*_embeddings.npy</code> files, and all six AmpC ones, had Lustre stripe count 1, against 28 for the <code>embeddings_striped/</code> files they were copied from. The dedup step wrote into a folder whose default layout was one stripe, so every later reader &mdash; PCA, each LT-All round's embedding fetch, the prediction workers &mdash; was limited to one server's bandwidth. This slowed those runs but cannot have changed their results. Fixed by restriping the files in place and adding <code>lfs setstripe -c -1</code> to <code>submit_d4_dedup_embeddings.sh</code>.</p>
+    <p><b style="color:var(--ink)">Restripe finished 2026-10-13 (job 11926899, one array task per file, <code>lfs migrate -c -1</code>):</b> all 12 files now have stripe count 28; no errors. Throughput below is file size &divide; wall time. Most files moved at 52&ndash;69 MB/s; the two outliers (AmpC grover3400 at 21 MB/s, D4 unimol2 at 13 MB/s) ran longest and overlapped other jobs, so contention is the likely cause (not investigated). Readers of these files &mdash; PCA, LT-All rounds, prediction workers &mdash; should now see multi-server bandwidth; the speed-up has not yet been measured on a real run.</p>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Dataset</th><th>Backbone</th><th class="num">Size</th><th class="num">Restripe time</th><th class="num">MB/s</th></tr></thead>
+      <tbody>
+        <tr><td>AmpC</td><td>unimol</td><td class="num">188 GiB</td><td class="num">2,976 s (0.8 h)</td><td class="num">68</td></tr>
+        <tr><td>AmpC</td><td>smited</td><td class="num">282 GiB</td><td class="num">5,103 s (1.4 h)</td><td class="num">59</td></tr>
+        <tr><td>AmpC</td><td>molformer</td><td class="num">282 GiB</td><td class="num">5,215 s (1.4 h)</td><td class="num">58</td></tr>
+        <tr><td>AmpC</td><td>mhgged</td><td class="num">376 GiB</td><td class="num">5,820 s (1.6 h)</td><td class="num">69</td></tr>
+        <tr><td>AmpC</td><td>unimol2</td><td class="num">564 GiB</td><td class="num">9,671 s (2.7 h)</td><td class="num">63</td></tr>
+        <tr><td>AmpC</td><td>grover3400</td><td class="num">1.3 TiB</td><td class="num">67,287 s (18.7 h)</td><td class="num">21</td></tr>
+        <tr><td>D4</td><td>unimol</td><td class="num">222 GiB</td><td class="num">4,239 s (1.2 h)</td><td class="num">56</td></tr>
+        <tr><td>D4</td><td>smited</td><td class="num">333 GiB</td><td class="num">5,991 s (1.7 h)</td><td class="num">60</td></tr>
+        <tr><td>D4</td><td>molformer</td><td class="num">333 GiB</td><td class="num">6,099 s (1.7 h)</td><td class="num">59</td></tr>
+        <tr><td>D4</td><td>mhgged</td><td class="num">444 GiB</td><td class="num">9,093 s (2.5 h)</td><td class="num">52</td></tr>
+        <tr><td>D4</td><td>unimol2</td><td class="num">666 GiB</td><td class="num">55,416 s (15.4 h)</td><td class="num">13</td></tr>
+        <tr><td>D4</td><td>grover3400</td><td class="num">1.5 TiB</td><td class="num">28,379 s (7.9 h)</td><td class="num">58</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose">
     <p><b style="color:var(--ink)">A dedup keep-mask builder that scales to 1.3B rows</b> (<code>embed/stitch/build_dedup_mask_partitioned.py</code>, from <code>docs/scaling_to_1.3B_design.md</code>): it hashes each SMILES to 128 bits and sorts within 256 partitions instead of holding every SMILES in one Python dict. Rebuilt from the raw files it produced keep-masks identical to the ones in use, for both AmpC (99,459,561 rows, 970,211 duplicates, 3 min 03 s) and D4 (116,241,184 rows, 15,257 duplicates, 3 min 35 s), at 1.6 GB peak memory &mdash; the old builder's D4 job requested 64 GB.</p>
     <p><b style="color:var(--ink)">D4's docking scores looked missing, but weren't.</b> <code>d4_138M/</code> (project storage) held only <code>d4_smiles.txt</code> (116,241,184 rows) &mdash; no scores file anywhere alongside it, and no download URL saved in this repo to re-fetch one. Turned out the source file was never lost, just never copied: <code>d4_enamine_style.csv</code> at its original path (<code>/N/project/SingleCell_Image/Yang/AI Drug/LargeData/D4/</code>) already had the "smiles,score" columns D4's own SMILES-only extraction had discarded, row-for-row aligned with <code>d4_smiles.txt</code> (verified directly: row 500,000 of the CSV matches line 499,999 of the SMILES file, off by the CSV's header row). Gzipped as-is into <code>d4_scores.csv.gz</code> &mdash; no reformatting needed, its column order already matches <code>ampc_scores.csv.gz</code>'s convention.</p>
     <p><b style="color:var(--ink)">A genuine bug in the dedup script, caught before it ever ran on D4:</b> <code>embed/stitch/dedup_smiles_and_scores.py</code> (built for AmpC, never used on a second dataset until now) hardcoded its output filenames as <code>ampc_smiles.txt</code>/<code>ampc_scores.csv.gz</code> regardless of what was passed in via <code>--smiles-file</code>/<code>--scores-file</code>. Running it as-is for D4 would have written AmpC-named files inside D4's own dedup directory &mdash; wrong and confusing, though not a collision with AmpC's actual files (different directory trees). Fixed to derive each output name from its corresponding input file's own basename; no behavior change for AmpC's existing invocation.</p>
@@ -1204,5 +1242,5 @@ footer {
 
 <footer>
   <span>al-molecular &middot; run_experiment.py / surrogates.py:LTAllSurrogate / molpal/models/mvemodels.py / stitch_enhits_large_shards.py / al-embed:embed/stitch/pca_reduce_embeddings.py / predict_pool_shard_worker_mpn.py</span>
-  <span>Updated 2026-10-12</span>
+  <span>Updated 2026-10-13</span>
 </footer>

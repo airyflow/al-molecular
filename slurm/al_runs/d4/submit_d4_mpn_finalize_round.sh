@@ -26,6 +26,8 @@
 #     sbatch slurm/al_runs/d4/submit_d4_mpn_finalize_round.sh 4 check
 #   Finish the last round (only after all 8 round_5_shard_*.done exist):
 #     sbatch slurm/al_runs/d4/submit_d4_mpn_finalize_round.sh 5
+#   Same for the batch-size-50 run: prefix with TAG=bs50, e.g.
+#     TAG=bs50 sbatch slurm/al_runs/d4/submit_d4_mpn_finalize_round.sh 5
 
 set -euo pipefail
 
@@ -49,15 +51,16 @@ export CUDA_VISIBLE_DEVICES=""
 
 D4_ROOT="/N/project/SingleCell_Image/mengjing/d4_138M"
 FRAC=0.004
+TAG="${TAG:-bs1024}"   # which run: bs1024 (default) or bs50
 N=116225927
 count=$(python3 -c "print(round($N * $FRAC))")
 
 CHECK_FLAG=""
 [ "$MODE" = "check" ] && CHECK_FLAG="--check"
 
-echo "[finalize] round=$ROUND mode=${MODE:-write} batch-size=$count"
+echo "[finalize] run=$TAG round=$ROUND mode=${MODE:-write} batch-size=$count"
 python3 -u finalize_parallel_round.py --dataset D4_dedup \
-    --coord-dir "$D4_ROOT/al_coord/mpn_bs1024_frac${FRAC}" \
-    --run-dir "runs/d4_mpn_bs1024_greedy_frac${FRAC}" \
+    --coord-dir "$D4_ROOT/al_coord/mpn_${TAG}_frac${FRAC}" \
+    --run-dir "runs/d4_mpn_${TAG}_greedy_frac${FRAC}" \
     --round "$ROUND" --n-rounds 5 --num-shards 8 \
     --batch-size "$count" --topk 50000 --acq greedy $CHECK_FLAG

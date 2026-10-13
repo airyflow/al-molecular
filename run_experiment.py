@@ -1091,7 +1091,8 @@ class MolPALExplorer:
         print(f"\n[done] results -> {self.run_dir}")
 
 
-def build_mpn_model(ncpu: int = 1, length: int = 2048, batch_size: Optional[int] = None):
+def build_mpn_model(ncpu: int = 1, length: int = 2048, batch_size: Optional[int] = None,
+                    persistent_workers: bool = False):
     """The MolPAL MPN (mean-variance-estimation head) exactly as
     MolPALExplorer builds it -- shared by the parallel orchestrator and its
     prediction workers so both sides construct an identical architecture.
@@ -1105,6 +1106,8 @@ def build_mpn_model(ncpu: int = 1, length: int = 2048, batch_size: Optional[int]
                   test_batch_size=4096, ncpu=ncpu)
     if batch_size is not None:
         kwargs["batch_size"] = batch_size
+    if persistent_workers:
+        kwargs["persistent_workers"] = True
     return build_model(**kwargs)
 
 
@@ -1140,6 +1143,7 @@ class ParallelMolPALExplorer(MolPALExplorer):
         init_size=8417, batch_size=8417, n_rounds=5, topk=1000, run_dir=None,
         seed=42, ncpu=1, poll_interval=5.0, retrain_from_scratch=True,
         resume_scores=None, resume_round=0, length=2048, mpn_batch_size=None,
+        mpn_persistent_workers=False,
     ):
         # Deliberately does NOT call MolPALExplorer.__init__ (it np.array()s
         # the pool and draws the init set over unusable molecules too);
@@ -1162,7 +1166,8 @@ class ParallelMolPALExplorer(MolPALExplorer):
         self.poll_interval = poll_interval
         self.retrain_from_scratch = retrain_from_scratch
 
-        self.model = build_mpn_model(ncpu=ncpu, length=length, batch_size=mpn_batch_size)
+        self.model = build_mpn_model(ncpu=ncpu, length=length, batch_size=mpn_batch_size,
+                                     persistent_workers=mpn_persistent_workers)
         self.acq_fn = get_metric(acq)
         self.acq_name = acq
         self.needs_var = acq in ("ucb", "lcb", "thompson", "ts", "ei", "pi")
@@ -1361,6 +1366,10 @@ def parse_args():
                               "as in the paper ('fully retrained from scratch with all acquired data at the "
                               "beginning of each iteration'). --no-retrain-from-scratch continues training "
                               "the previous round's weights, as the single-process MolPALExplorer does.")
+    mp_grp.add_argument("--mpn-persistent-workers", action="store_true",
+                         help="Keep the MPN training data-loader workers alive across epochs instead of restarting "
+                              "them every epoch. Measured ~1.8x faster training on D4 with bit-identical "
+                              "predictions (report sect. 16). Orchestrator training only.")
     mp_grp.add_argument("--mpn-batch-size", type=int, default=None,
                          help="Override MPNN's training batch_size (default: 50, chemprop/paper default). "
                               "A deliberate deviation from the paper's own hyperparameter, NOT just a speed "
@@ -1481,6 +1490,7 @@ def main():
             poll_interval=args.poll_interval, retrain_from_scratch=args.retrain_from_scratch,
             resume_scores=resume_scores, resume_round=resume_round, length=args.length,
             mpn_batch_size=args.mpn_batch_size,
+            mpn_persistent_workers=args.mpn_persistent_workers,
         )
 
     else:

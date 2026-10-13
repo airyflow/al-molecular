@@ -112,7 +112,24 @@ weights each molecule by `exp(w * standardized score)` (mean-1 normalized per
 batch), so training effort follows the part of the score distribution the
 metric actually rewards. `w=0` is the paper's MSE exactly.
 
-Caveats worth keeping: the effect is larger on the replication seeds (+0.015
+**Full top_weight curve** (seeds 42-46, n=5 each): w=0.5 +0.0036, w=1.0
++0.0060, w=1.5 +0.0040, w=2.0 +0.0042, **w=3.0 −0.0102 [−0.0198, −0.0006]**.
+w=3 is significantly *worse* than baseline (AUC −0.0426): the weights are
+exp(w * standardized score), so at w=3 nearly all gradient lands on a handful
+of molecules and training degrades. Useful range is w <= 2; 1.0/1.5/2.0 are
+indistinguishable at this resolution (CI widths ~±0.012).
+
+**Caveat on the headline magnitude.** `tw1.0` was chosen for replication
+*because* it was the best of four arms, so the unbiased estimate is the
+replication alone (+0.0152 [+0.0096, +0.0208]); the pooled +0.0106 mixes a
+selection-biased sample with an unbiased one. The effect is robustly positive
+either way, but state it as "+0.004 to +0.015, best estimate ~+0.010" rather
+than a precise +0.0106. On seeds 42-46 the whole tw family sits near +0.004 to
++0.006, so a sharp diagnostic is to run tw1.5/tw2.0 on seeds 47-51: if they
+also jump to ~+0.015 the seed set favours top-weighting generally; if they
+stay near +0.004, tw1.0 is genuinely better.
+
+Other caveats: the effect is larger on the replication seeds (+0.015
 vs +0.006) and the control happened to run low there (0.8690 vs 0.8764) --
 the design is paired per seed so that cancels, and the pooled number is the
 honest one. The AUC difference was negative on the original seeds (early
@@ -138,6 +155,13 @@ full-scoring LT-All greedy (0.8764, 5.00 passes, 386 s/run):
 whole pool (`pf50`, −0.0034) loses more than a 6% shortlist rebuilt once from a
 better-trained surrogate (`pf10r3`, −0.0012). Frozen shortlists plateau around
 −0.003 however large (`pf20` ≈ `pf50`); one refresh breaks through that floor.
+
+**`pf10r3` REPLICATED (2026-10-13).** Fresh seeds 47-51 gave +0.0024
+[−0.0014, +0.0062]; pooled over 10 seeds **+0.0006 [−0.0017, +0.0029]** at
+2.17 vs 4.99 passes. The pooled point estimate is essentially exactly zero
+with a tight CI well inside the margin, and is no longer negative -- so the
+claim is "equal recall at 2.3x less pool scoring", not "slightly worse but
+acceptable".
 
 `pf10r3` is the first arm in this package to pass a pre-registered rule
 (non-inferiority: CI contains 0, lower bound > −0.005). **Caveat: seven arms

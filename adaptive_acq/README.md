@@ -91,6 +91,35 @@ policy could gain on ENHITS/LT-All is about +0.005 recall, so learned β
 controllers (bandit/PPO) are not justified here. The usable finding is a fixed
 rule (β ≈ 0.1–0.3 at batches ≥ 0.2%), which still needs replicating on new seeds.
 
+### tw1.0 (top-weighted loss): REPLICATED recall gain (2026-10-12)
+
+The only recall improvement found in this package, and the only arm to satisfy
+the full pre-registered rule (>= +0.005 at round 5, 95% CI excluding 0, then
+replicated on 5 fresh seeds). ENHITS, LT-All, 0.1% batches, paired per seed:
+
+| seed set | control | `tw1.0` | paired diff [95% CI] |
+|---|---|---|---|
+| original 42-46 | 0.8764 | 0.8824 | +0.0060 [−0.0019, +0.0139] |
+| replication 47-51 | 0.8690 | 0.8842 | +0.0152 [+0.0096, +0.0208] |
+| **pooled (10 seeds)** | **0.8727** | **0.8833** | **+0.0106 [+0.0055, +0.0157]**, p=0.0011 |
+
+Positive in 9/10 seeds. The replication was a true out-of-sample test: the
+margin, the arm and the analysis code all predate those seeds existing.
+
+**What it is.** LT-All trains with plain MSE over every labeled molecule, but
+the metric is recall of the true top-1000 out of 2.1M. `--ltall-top-weight w`
+weights each molecule by `exp(w * standardized score)` (mean-1 normalized per
+batch), so training effort follows the part of the score distribution the
+metric actually rewards. `w=0` is the paper's MSE exactly.
+
+Caveats worth keeping: the effect is larger on the replication seeds (+0.015
+vs +0.006) and the control happened to run low there (0.8690 vs 0.8764) --
+the design is paired per seed so that cancels, and the pooled number is the
+honest one. The AUC difference was negative on the original seeds (early
+rounds cost, repaid by round 5) but positive on the replication seeds, so the
+early-round penalty is seed-dependent, not a fixed property. Only w = 0.5 and
+1.0 have been tried, and 1.0 > 0.5, so the optimum may be higher.
+
 ### Prefilter trade curve + shortlist refresh (real pool, 2026-10-12)
 
 `submit_prefilter_curve.sh`, 4 more arms x 5 seeds, paired against

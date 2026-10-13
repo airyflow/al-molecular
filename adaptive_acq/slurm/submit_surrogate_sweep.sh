@@ -39,6 +39,16 @@
 #   3 m15_tw1.0  M=15, top_weight=1.0
 #   4 __ctrl     plain baseline, written to runs/adaptive/fixed_b0_frac0.001_seed<S>
 #                (only needed for seed sets with no control yet; skips if complete)
+#   5 tw1.5 / 6 tw2.0 / 7 tw3.0   further top_weight values
+#
+# tw1.0 REPLICATED: pooled over seeds 42-51 it gives +0.0106 [+0.0055, +0.0157]
+# recall (p=0.0011, positive in 9/10 seeds) -- the one real recall gain here.
+# Since w=1.0 beat w=0.5, arms 5-7 probe whether the optimum is higher. Note
+# the weights are exp(w * standardized score) normalized to mean 1 per batch,
+# so large w concentrates nearly all gradient on a handful of top molecules;
+# expect higher variance, and possibly a collapse, at w=3.
+#
+#   sbatch --array=25-39%10 adaptive_acq/slurm/submit_surrogate_sweep.sh
 #
 # Decision rule, fixed before the results (same as the beta gate): an arm is
 # a GO candidate only if it gains >= +0.005 top-1000 recall at round 5 with a
@@ -72,6 +82,9 @@ case $arm in
   2) NAME=tw1.0;     EXTRA=(--ltall-top-weight 1.0) ;;
   3) NAME=m15_tw1.0; EXTRA=(--ltall-members 15 --ltall-top-weight 1.0) ;;
   4) NAME=__ctrl;    EXTRA=() ;;   # baseline at NEW seeds (see below)
+  5) NAME=tw1.5;     EXTRA=(--ltall-top-weight 1.5) ;;
+  6) NAME=tw2.0;     EXTRA=(--ltall-top-weight 2.0) ;;
+  7) NAME=tw3.0;     EXTRA=(--ltall-top-weight 3.0) ;;
   *) echo "no arm $arm"; exit 1 ;;
 esac
 

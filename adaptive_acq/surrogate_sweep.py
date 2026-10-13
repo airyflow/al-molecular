@@ -20,7 +20,7 @@ import numpy as np
 from scipy import stats
 
 SEEDS = (42, 43, 44, 45, 46)
-ARMS = ("m15", "tw0.5", "tw1.0", "m15_tw1.0")
+ARMS = ("m15", "tw0.5", "tw1.0", "tw1.5", "tw2.0", "tw3.0", "m15_tw1.0")
 MIN_GAIN = 0.005
 
 

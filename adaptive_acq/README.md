@@ -119,15 +119,25 @@ exp(w * standardized score), so at w=3 nearly all gradient lands on a handful
 of molecules and training degrades. Useful range is w <= 2; 1.0/1.5/2.0 are
 indistinguishable at this resolution (CI widths ~±0.012).
 
-**Caveat on the headline magnitude.** `tw1.0` was chosen for replication
-*because* it was the best of four arms, so the unbiased estimate is the
-replication alone (+0.0152 [+0.0096, +0.0208]); the pooled +0.0106 mixes a
-selection-biased sample with an unbiased one. The effect is robustly positive
-either way, but state it as "+0.004 to +0.015, best estimate ~+0.010" rather
-than a precise +0.0106. On seeds 42-46 the whole tw family sits near +0.004 to
-+0.006, so a sharp diagnostic is to run tw1.5/tw2.0 on seeds 47-51: if they
-also jump to ~+0.015 the seed set favours top-weighting generally; if they
-stay near +0.004, tw1.0 is genuinely better.
+**Headline magnitude, after the seed-set diagnostic (2026-10-13).** Running
+tw1.5/tw2.0 on seeds 47-51 settled it -- the whole family moves together:
+
+| arm | seeds 42-46 | seeds 47-51 | pooled n=10 |
+|---|---|---|---|
+| `tw1.0` | +0.0060 | +0.0152 | +0.0106 [+0.0055, +0.0157] |
+| `tw1.5` | +0.0040 | +0.0132 | +0.0086 [+0.0025, +0.0147] |
+| `tw2.0` | +0.0042 | +0.0122 | +0.0082 [+0.0029, +0.0135] |
+
+So `tw1.0` is NOT special: seeds 47-51 favour top-weighting generally, and
+every w in [1, 2] jumps by the same amount. Two consequences. (a) The
+selection-bias worry is small -- tw1.0 beat tw1.5 by only 0.002 on the
+selection seeds and they are indistinguishable on the fresh ones, so the
+ranking within [1, 2] was noise. (b) **State the result as: top-weighting
+gives a real gain of ~+0.009 (central estimate across arms), varying ~+0.004
+to +0.015 by seed set; any w in 1.0-2.0 is equivalent and w=3 breaks it.** Do
+not quote a single pooled CI for one w as if it were precise -- the
+between-seed-set spread is 2-3x and, with only two seed sets, is the dominant
+uncertainty.
 
 Other caveats: the effect is larger on the replication seeds (+0.015
 vs +0.006) and the control happened to run low there (0.8690 vs 0.8764) --

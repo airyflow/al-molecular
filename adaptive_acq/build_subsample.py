@@ -38,6 +38,56 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
+def is_complete(path: Path, n_rows: int, probe: int = 2000) -> bool:
+    """True if `path` looks fully written. np.lib.format.open_memmap
+    PREALLOCATES the file at full size, so a build killed partway leaves a
+    file of exactly the right length whose tail is still zeros -- it looks
+    finished to any size check. Probing the last rows catches that; a run of
+    `probe` genuinely all-zero embedding rows is vanishingly unlikely."""
+    if not path.exists():
+        return False
+    try:
+        a = np.load(path, mmap_mode="r")
+    except Exception:
+        return False
+    if a.shape[0] != n_rows:
+        return False
+    tail = np.asarray(a[-min(probe, a.shape[0]):])
+    return bool((np.abs(tail).sum(axis=1) != 0).all())
+
+
+def write_backbones(args, out: Path, emb_dict, idx):
+    """Write one <backbone>_embeddings.npy per backbone, streamed block by
+    block so peak RAM is one backbone's slice rather than all of them.
+
+    Derived from `idx` alone (sorted source row indices) so the fresh and
+    --resume paths share it. Each backbone is skipped if it already passes
+    is_complete(), and verified after writing -- a build killed mid-write
+    otherwise leaves a correctly-sized file with a zero tail.
+    """
+    n, bs = len(idx), args.block_size
+    # group the sorted source rows by the contiguous block they came from
+    groups = np.split(np.arange(n), np.flatnonzero(np.diff(idx // bs)) + 1)
+    for b in args.backbones:
+        path = out / f"{b}_embeddings.npy"
+        src = emb_dict[b]
+        if is_complete(path, n):
+            print(f"[build] {b}: already complete -- skipping", flush=True)
+            continue
+        t0 = time.perf_counter()
+        dst = np.lib.format.open_memmap(path, mode="w+", dtype=np.float32, shape=(n, src.shape[1]))
+        for g in groups:
+            rows = idx[g]
+            st = int(rows[0] // bs) * bs
+            block = np.asarray(src[st:st + bs], dtype=np.float32)
+            dst[g[0]:g[0] + len(g)] = block[rows - st]
+        dst.flush()
+        del dst
+        if not is_complete(path, n):
+            raise SystemExit(f"{b}: written but failed the integrity probe")
+        print(f"[build] {b}: ({n:,}, {src.shape[1]}) in {time.perf_counter() - t0:.0f}s", flush=True)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--dataset", required=True, help="source dataset key in run_experiment.DATASETS")
@@ -46,12 +96,36 @@ def main():
     p.add_argument("--block-size", type=int, default=1000)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--out-dir", required=True)
+    p.add_argument("--resume", action="store_true",
+                   help="reuse an existing scores.csv.gz/rows.npy and write only the backbones whose "
+                        ".npy is missing or incomplete, skipping the (slow) oracle load")
     args = p.parse_args()
 
     import run_experiment as exp
     exp.DATASET = args.dataset
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
+
+    rows_path, scores_path = out / "rows.npy", out / "scores.csv.gz"
+    if args.resume:
+        if not scores_path.exists():
+            raise SystemExit(f"--resume needs an existing {scores_path}")
+        emb_dict, smiles = exp.load_embeddings(args.backbones)
+        sub = pd.read_csv(scores_path)
+        if rows_path.exists():
+            idx = np.load(rows_path)
+        else:
+            # Older builds did not save rows.npy; recover the source rows from
+            # the saved SMILES instead. Still far cheaper than load_oracle().
+            print("[build] rows.npy absent -- recovering source rows from scores.csv.gz", flush=True)
+            pos = {s: i for i, s in enumerate(smiles)}
+            idx = np.array([pos[s] for s in sub.smiles], dtype=np.int64)
+            np.save(rows_path, idx)
+        if len(idx) != len(sub):
+            raise SystemExit(f"rows.npy has {len(idx):,} entries but scores.csv.gz has {len(sub):,}")
+        print(f"[build] resume: {len(idx):,} rows", flush=True)
+        write_backbones(args, out, emb_dict, idx)
+        return
 
     oracle = exp.load_oracle()
     emb_dict, smiles = exp.load_embeddings(args.backbones)
@@ -73,36 +147,13 @@ def main():
     print(f"[build] selected {len(idx):,} scored rows from {n_blocks:,} blocks", flush=True)
 
     # scores.csv.gz must be row-aligned with the embeddings written below.
+    np.save(rows_path, idx)
     sub_smiles = [smiles[i] for i in idx]
     pd.DataFrame({"smiles": sub_smiles, "score": [oracle[s] for s in sub_smiles]}) \
         .to_csv(out / "scores.csv.gz", index=False)
     print(f"[build] wrote scores.csv.gz ({len(idx):,} rows)", flush=True)
 
-    # One backbone at a time, streamed block-by-block, so peak RAM is one
-    # backbone's slice rather than all five.
-    starts_kept = {st: k for st, k in zip(starts, keep) if len(k)}
-    for b in args.backbones:
-        t0 = time.perf_counter()
-        src = emb_dict[b]
-        dst = np.lib.format.open_memmap(out / f"{b}_embeddings.npy", mode="w+",
-                                        dtype=np.float32, shape=(len(idx), src.shape[1]))
-        pos = 0
-        wanted = set(idx.tolist())
-        for st in starts:
-            rows = starts_kept.get(st)
-            if rows is None:
-                continue
-            rows = rows[[r in wanted for r in rows]]
-            if not len(rows):
-                continue
-            block = np.asarray(src[st:st + args.block_size], dtype=np.float32)
-            dst[pos:pos + len(rows)] = block[rows - st]
-            pos += len(rows)
-        dst.flush()
-        del dst
-        print(f"[build] {b}: ({pos:,}, {src.shape[1]}) in {time.perf_counter() - t0:.0f}s", flush=True)
-        if pos != len(idx):
-            raise SystemExit(f"{b}: wrote {pos:,} rows, expected {len(idx):,}")
+    write_backbones(args, out, emb_dict, idx)
 
     print(f"[build] done -> {out}")
 

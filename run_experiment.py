@@ -73,6 +73,7 @@ RUNS_DIR.mkdir(parents=True, exist_ok=True)
 
 AMPC_ROOT = Path(os.environ.get("AMPC_ROOT", "/N/project/SingleCell_Image/mengjing/ampc_99.5M"))
 D4_ROOT = Path(os.environ.get("D4_ROOT", "/N/project/SingleCell_Image/mengjing/d4_138M"))
+D4_SUB_DIR = Path(os.environ.get("D4_SUB_DIR", "/N/slate/mengjing/d4_sub"))
 
 # Registry so a second, much larger dataset (AmpC, 99.5M molecules, Figure 5)
 # can share this same driver without EnamineHTS's paths (all under this
@@ -193,6 +194,18 @@ DATASETS = {
         "library": D4_ROOT / "dedup" / "d4_smiles.txt",
         "oracle": D4_ROOT / "dedup" / "d4_scores.csv.gz",
         "embed_dir": D4_ROOT / "dedup",
+    },
+    "D4_SUB": {
+        # 2,104,318-molecule subsample of D4_dedup -- exactly ENHITS's pool
+        # size -- built by adaptive_acq/build_subsample.py. Exists so the
+        # "do adaptive_acq's findings transfer to a second target?" question
+        # can be answered at ENHITS cost (~6 min/run) instead of D4's full
+        # scale (~7.6 h/run, ~55 GPU-h for a 5-seed paired test). scores.csv.gz
+        # is row-aligned with the .npy embeddings by construction, so it serves
+        # as both "library" (EmbeddingFeaturizer's smiles_source) and "oracle".
+        "library": D4_SUB_DIR / "scores.csv.gz",
+        "oracle": D4_SUB_DIR / "scores.csv.gz",
+        "embed_dir": D4_SUB_DIR,
     },
 }
 

@@ -37,6 +37,8 @@
 #   1 pf50    mult=50, static          (~2.3x)
 #   2 pf10r3  mult=10, refresh at r3   (~2.3x)
 #   3 pf5r3   mult=5,  refresh at r3   (~2.4x)
+#   4 combo   pf10r3 + tw1.0 -- do the two validated wins compose?
+#             (array 20-24; expect ~+0.009 recall AND ~2.3x cheaper together)
 #
 # Control: runs/adaptive/fixed_b0_frac0.001_seed{42..46} (already run, same
 # seeded init draws, so paired per seed). Same non-inferiority rule as before:
@@ -66,6 +68,11 @@ case $arm in
   1) NAME=pf50;   EXTRA=(--prefilter-mult 50) ;;
   2) NAME=pf10r3; EXTRA=(--prefilter-mult 10 --prefilter-refresh 3) ;;
   3) NAME=pf5r3;  EXTRA=(--prefilter-mult 5  --prefilter-refresh 3) ;;
+  # Do the two validated wins compose? tw1.0 (~+0.009 recall) acts on the
+  # training loss, pf10r3 (2.3x cheaper) on the scoring budget -- different
+  # mechanisms, so they should stack, but top-weighting sharpens exactly the
+  # ranking the shortlist is built from, so an interaction is plausible.
+  4) NAME=combo;  EXTRA=(--prefilter-mult 10 --prefilter-refresh 3 --ltall-top-weight 1.0) ;;
   *) echo "no arm $arm"; exit 1 ;;
 esac
 

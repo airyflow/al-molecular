@@ -25,6 +25,9 @@
 #   8 thompson (original wide grid 0..4)   9 linucb (needs artifacts/linucb_d4.json)
 #   10 grpo (needs artifacts/grpo_d4/policy_best.pt)   11 thompson_narrow (default grid 0..0.5)
 #   12 sched_decay_narrow (linear decay 0.3 -> 0; configs 5-7 start at beta=2, which is far too high)
+#   16-18 nbeta0.1 / nbeta0.3 / nbeta1.0: NEGATIVE beta, i.e. anti-exploration
+#         (prefer molecules the surrogate is confident about) -- the mirror of
+#         the beta gate, which only ever swept positive beta
 #   13-15 div_l1 / div_l2 / div_l5: greedy (beta=0) + batch diversity (max-marginal relevance,
 #         lambda = 1 / 2 / 5, MoLFormer cosine similarity) -- see acquisition.select_diverse
 # 9-11 use the default (narrow) beta grid -- see acquisition.DEFAULT_ARMS.
@@ -33,6 +36,7 @@
 #   sbatch --array=45-54 adaptive_acq/slurm/submit_enhits_controllers.sh   # learned controllers
 #   sbatch --array=55-64 adaptive_acq/slurm/submit_enhits_controllers.sh   # thompson + decay, narrow range
 #   sbatch --array=65-79 adaptive_acq/slurm/submit_enhits_controllers.sh   # batch diversity, lambda 1/2/5
+#   sbatch --array=80-94 adaptive_acq/slurm/submit_enhits_controllers.sh   # NEGATIVE beta (anti-exploration)
 
 set -euo pipefail
 source adaptive_acq/slurm/_preamble.sh
@@ -62,6 +66,16 @@ case $cfg in
   13) NAME=div_l1;                CTRL=(--controller fixed --beta 0 --diversity-lambda 1) ;;
   14) NAME=div_l2;                CTRL=(--controller fixed --beta 0 --diversity-lambda 2) ;;
   15) NAME=div_l5;                CTRL=(--controller fixed --beta 0 --diversity-lambda 5) ;;
+  # ANTI-exploration. The beta gate swept 0.05..4 -- all POSITIVE -- and found
+  # recall falls monotonically as beta rises. It never asked the mirror
+  # question: does beta < 0 help? beta < 0 prefers molecules the surrogate is
+  # CONFIDENT about (ucb = mu + beta*sigma becomes LCB), so if LT-All's
+  # ensemble disagreement is noise rather than signal here, actively avoiding
+  # it could beat greedy. Verified to pick lower-sigma molecules: mean sigma
+  # of the batch falls 0.481 (greedy) -> 0.449 (-0.1) -> 0.201 (-1.0).
+  16) NAME=nbeta0.1;              CTRL=(--controller fixed --beta -0.1) ;;
+  17) NAME=nbeta0.3;              CTRL=(--controller fixed --beta -0.3) ;;
+  18) NAME=nbeta1.0;              CTRL=(--controller fixed --beta -1.0) ;;
   *)  echo "no config $cfg"; exit 1 ;;
 esac
 

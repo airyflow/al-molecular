@@ -147,6 +147,30 @@ rounds cost, repaid by round 5) but positive on the replication seeds, so the
 early-round penalty is seed-dependent, not a fixed property. Only w = 0.5 and
 1.0 have been tried, and 1.0 > 0.5, so the optimum may be higher.
 
+### Negative beta closes the acquisition question (2026-10-14)
+
+The beta gate only ever swept POSITIVE beta, so "exploration hurts" was still
+consistent with greedy being the *endpoint* of a monotone curve. Arms 16-18
+(`--beta -0.1/-0.3/-1.0`, i.e. LCB: prefer molecules the surrogate is
+confident about) complete the other side, against the same control:
+
+| β | paired diff | | β | paired diff |
+|---|---|---|---|---|
+| −1.00 | −0.0826 [−0.1166, −0.0486] | ↔ | +1.00 | −0.0918 [−0.1711, −0.0125] |
+| −0.30 | −0.0068 [−0.0168, +0.0032] | ↔ | +0.30 | −0.0068 [−0.0152, +0.0016] |
+| −0.10 | −0.0050 [−0.0103, +0.0003] | ↔ | +0.10 | +0.0010 [−0.0015, +0.0035] |
+| | | **0 = best** | | |
+
+**The curve is symmetric about zero.** β = ±0.3 give identical damage
+(−0.0068 each); ±1.0 give −0.083 vs −0.092. Negative beta was positive in
+0/5, 1/5 and 0/5 seeds respectively.
+
+So greedy is a genuine optimum, not an endpoint, and LT-All's ensemble σ is
+**uninformative for ranking** here rather than actively misleading -- if it
+were misleading, β < 0 would have won. Adding σ or subtracting it costs about
+the same. This closes the acquisition axis symmetrically: there is nothing to
+extract from this uncertainty signal in either direction.
+
 ### Composition + second-target transfer (2026-10-14)
 
 **The two wins compose.** `combo` = pf10r3 + tw1.0 on ENHITS seeds 42-46:

@@ -147,6 +147,35 @@ rounds cost, repaid by round 5) but positive on the replication seeds, so the
 early-round penalty is seed-dependent, not a fixed property. Only w = 0.5 and
 1.0 have been tried, and 1.0 > 0.5, so the optimum may be higher.
 
+### Composition + second-target transfer (2026-10-14)
+
+**The two wins compose.** `combo` = pf10r3 + tw1.0 on ENHITS seeds 42-46:
++0.0058 [-0.0033, +0.0149] at 2.17 passes (2.3x cheaper). That point estimate
+is essentially identical to `tw1.0` alone on the same seeds (+0.0060), i.e.
+**adding the prefilter costs none of the recall gain**. The CI spans 0, as
+tw1.0 alone also does at n=5 on these seeds -- the evidence for composition is
+the agreement of point estimates, not a significant combo effect by itself.
+This is the configuration to deploy: `--ltall-top-weight 1.0 --prefilter-mult
+10 --prefilter-refresh 3`.
+
+**Top-weighting transfers to a second target, and helps far more there.**
+D4_SUB (a 2,104,318-molecule subsample of D4 -- same protocol, same pool size,
+different protein), 5 seeds, paired against its own control:
+
+| target | control r5 | tw1.0 r5 | paired diff | relative |
+|---|---|---|---|---|
+| ENHITS (pooled, n=10) | 0.8727 | 0.8833 | +0.0106 | ~1% |
+| **D4_SUB (n=5)** | **0.2136** | **0.2682** | **+0.0546 [+0.0136, +0.0956]** | **~25%** |
+
+Positive in 5/5 D4 seeds. The pattern is interpretable: D4 is far harder
+(0.21 vs 0.88 recall at the same ~12.6k absolute label budget), so the
+surrogate is nowhere near saturated and aligning training with the top-k
+metric has much more room to help; ENHITS is already at 0.88. **The gain grows
+as the task gets harder**, which is the regime billion-scale pools sit in.
+
+Caveats: n=5 on D4 with a wide CI, and this is the subsample rather than full
+D4 (116M). The full-scale D4 confirmation (~55 GPU-h) is now justified.
+
 ### Prefilter trade curve + shortlist refresh (real pool, 2026-10-12)
 
 `submit_prefilter_curve.sh`, 4 more arms x 5 seeds, paired against
